@@ -43,7 +43,7 @@ classdef OOMMF_result < hgsetget % subclass hgsetget
      end
      
      p = inputParser;
-     p.addParamValue('showMemory',false);
+     p.addParamValue('showMemory',false,@islogical);
      p.parse(varargin{:});
      params = p.Results;
      
@@ -162,11 +162,14 @@ classdef OOMMF_result < hgsetget % subclass hgsetget
      p.addParamValue('saveImg',false,@islogical);
      p.addParamValue('saveImgPath','');
      p.addParamValue('colourRange',0,@isnumerical);
+     p.addParamValue('showScale',true,@islogical);
      
      p.parse(slice,proj,varargin{:});
      params = p.Results;
        
-     handler = obj.abstractPlot('Z',params.slice,params.proj,'saveImg',params.saveImg,'saveImgPath',params.saveImgPath,'colourRange',params.colourRange);                  
+     handler = obj.abstractPlot('Z',params.slice,params.proj,...
+         'saveImg',params.saveImg,'saveImgPath',params.saveImgPath,...
+         'colourRange',params.colourRange,'showScale',params.showScale);                  
    end
    
    % plot vector plot of magnetisation in XY plane
@@ -179,17 +182,34 @@ classdef OOMMF_result < hgsetget % subclass hgsetget
      p.addParamValue('saveImg',false,@islogical);
      p.addParamValue('saveImgPath','');
      p.addParamValue('colourRange',0,@isnumerical);
+     p.addParamValue('showScale',true,@islogical);
      
      p.parse(slice,proj,varargin{:});
      params = p.Results;
        
-     handler = obj.abstractPlot('Y',params.slice,params.proj,'saveImg',params.saveImg,'saveImgPath',params.saveImgPath,'colourRange',params.colourRange);                  
+     handler = obj.abstractPlot('Y',params.slice,params.proj,...
+         'saveImg',params.saveImg,'saveImgPath',params.saveImgPath,...
+         'colourRange',params.colourRange,'showScale',params.showScale);                  
    end
    
    % plot vector plot of magnetisation in XZ plane
-   % z is number of plane
-   function plotMSurfYZ(obj,x,proj,save)
-     obj.abstractPlot(a1,x,proj,save)
+   % z is number of planex
+   function plotMSurfYZ(obj,slice,proj,varargin)
+     p = inputParser;
+     p.addRequired('slice',@isnumeric);
+     p.addRequired('proj',@ischar);
+     
+     p.addParamValue('saveImg',false,@islogical);
+     p.addParamValue('saveImgPath','');
+     p.addParamValue('colourRange',0,@isnumerical);
+     p.addParamValue('showScale',true,@islogical);
+     
+     p.parse(slice,proj,varargin{:});
+     params = p.Results;
+       
+     handler = obj.abstractPlot('X',params.slice,params.proj,...
+         'saveImg',params.saveImg,'saveImgPath',params.saveImgPath,...
+         'colourRange',params.colourRange,'showScale',params.showScale); 
    end
    
    % base function for surface plot
@@ -199,25 +219,21 @@ classdef OOMMF_result < hgsetget % subclass hgsetget
    % saveImg  -  save img (booleans)
    % saveImgPath - path to save image 
    function handler = abstractPlot(obj,viewAxis,slice,proj,varargin)
-
-    symb = ['X', 'Y', 'Z'];   
     
      % parse input parameters
      p = inputParser;
      p.addRequired('viewAxis',@ischar);
      p.addRequired('slice',@isnumeric);
      p.addRequired('proj',@ischar);
-     p.addParamValue('saveImg', false);
+     p.addParamValue('saveImg', false,@islogical);
      p.addParamValue('saveImgPath','');
-     p.addParamValue('colourRange',0);
+     p.addParamValue('colourRange',0,@isnumeric);
+     p.addParamValue('showScale',true,@islogical);
      
      p.parse(viewAxis,slice,proj,varargin{:});
      params = p.Results;
     
-     
-     proj = obj.getIndex(params.proj);
-     
-     switch (proj) 
+     switch (obj.getIndex(params.viewAxis)) 
          case 1
              axis1 = 'Y ';
              axis2 = 'Z ';
@@ -232,7 +248,7 @@ classdef OOMMF_result < hgsetget % subclass hgsetget
              return
      end        
               
-    data = obj.getSlice(params.viewAxis,params.slice,'proj',params.proj);
+    data = obj.getSlice(params.viewAxis,params.slice,params.proj);
      
     if (params.colourRange == 0)
 	   maxM = max(max(data(:)),abs(min(data(:))));
@@ -248,20 +264,43 @@ classdef OOMMF_result < hgsetget % subclass hgsetget
     else
          
     end
-    G = fspecial('gaussian',[9 9], 3);
+    
+    G = fspecial('gaussian',[9 9],0.2);
     Ig = imfilter(data,G,'circular','same','conv');
 	handler = imagesc(Ig);
-	colormap(b2r(-params.colourRange,params.colourRange));
+	axis xy;
+    colormap(b2r(-params.colourRange,params.colourRange));
 	hcb=colorbar('EastOutside');
 	set(hcb,'XTick',[-params.colourRange,0,params.colourRange])
-    axis xy;
-    axis([0,size(data,2),0,size(data,1)]);
-    xlabel(strcat(axis1,'(\mum)'), 'FontSize', 10);
-    ylabel(strcat(axis2,' (\mum)'), 'FontSize', 10);
-    % set(gca,'YTick',[200,400],'YTickLabel',[20,40],'XTick',[0,50,400],'XTickLabel',[0,5,40]);
+    
+    if (params.showScale)
+     % axis([eval(strcat('obj.',lower(axis1),'min')),...
+     %       eval(strcat('obj.',lower(axis1),'max')),...
+     %       eval(strcat('obj.',lower(axis2),'min')),...
+     %       eval(strcat('obj.',lower(axis2),'max'))]);
+      xlabel(strcat(axis1,'(\mum)'), 'FontSize', 10);
+      ylabel(strcat(axis2,' (\mum)'), 'FontSize', 10);
+    else
+      axis([0,size(data,2),0,size(data,1)]);
+      xlabel(strcat(axis1,'(cell #)'), 'FontSize', 10);
+      ylabel(strcat(axis2,' (cell #)'), 'FontSize', 10);
+    end    
+    set(gca,'XTick',[1,...
+                     ceil((1+eval(strcat('obj.',lower(axis1),'nodes')))/2),...
+                     eval(strcat('obj.',lower(axis1),'nodes'))],...
+        'XTickLabel',[eval(strcat('obj.',lower(axis1),'min'))/1e-6,...
+                      0.5*(eval(strcat('obj.',lower(axis1),'min'))+eval(strcat('obj.',lower(axis1),'max')))/1e-6,...
+                      eval(strcat('obj.',lower(axis1),'max'))/1e-6]);
+                  
+    set(gca,'YTick',[1,...
+                     ceil((1+eval(strcat('obj.',lower(axis2),'nodes')))/2),...
+                     eval(strcat('obj.',lower(axis2),'nodes'))],...
+        'YTickLabel',[eval(strcat('obj.',lower(axis2),'min'))/1e-6,...
+                      0.5*(eval(strcat('obj.',lower(axis2),'min'))+eval(strcat('obj.',lower(axis2),'max')))/1e-6,...
+                      eval(strcat('obj.',lower(axis2),'max'))/1e-6]);
+                  
 	set(hcb,'FontSize', 15);
-    % axis off;
-    title(strcat('view along ',viewAxis,' axis, M',symb(proj),' projection',...
+    title(strcat('view along ',viewAxis,' axis, M',params.proj,' projection',...
                   ', simulation time = ',num2str(obj.totalSimTime,'%10.2e'),' s'));
     if (params.saveImg)
       imgName = strcat(params.saveImgPath,'\',...
@@ -358,21 +397,18 @@ classdef OOMMF_result < hgsetget % subclass hgsetget
      fprintf(fid,strcat('MemUsedMATLAB :',num2str(res.MemUsedMATLAB),' \n'));
      fclose(fid);
    end    
-   
-   % make a movie. It doesn't work! Have to do! 
-   function makeMovie(path)
-       
-   end    
-      
+         
    % return slice of space
    % sliceNumber
    % proj 
    % rangeX - array
    % rangeY - array
    % rangeZ - array
-   function res = getSlice(obj,varargin)
+   function res = getSlice(obj,viewAxis,sliceNumber,proj,varargin)
      p = inputParser;
-     p.addParamValue('proj', ':',@(x)any(strcmp(x,{'X','Y','Z',':'})));
+     p.addRequired('viewAxis', @(x)any(strcmp(x,{'X','Y','Z',':'})));
+     p.addRequired('proj', @(x)any(strcmp(x,{'X','Y','Z',':'})));
+     p.addRequired('sliceNumber',@isnumeric);
      p.addParamValue('range1',':',...
           @(x)(strcmp(x,':') ||...
           (isnumeric(x) && (size(x,1)==1) && (size(x,2)==2))...
@@ -382,7 +418,7 @@ classdef OOMMF_result < hgsetget % subclass hgsetget
           (isnumeric(x) && (size(x,1)==1) && (size(x,2)==2))...
         ));
     
-     p.parse(varargin{:});
+     p.parse(viewAxis,proj,sliceNumber,varargin{:});
      params = p.Results;
      params.proj = obj.getIndex(params.proj);
      
@@ -395,7 +431,7 @@ classdef OOMMF_result < hgsetget % subclass hgsetget
     if (isnumeric(params.range2) && (size(params.range2,1)==1) && (size(params.range2,2)==2))
        range2str = strcat(num2str(params.range2(1)),':',num2str(params.range2(2)));
     else
-        rangeYstr = ':';
+        range2str = ':';
     end
     
     if (strcmp(params.viewAxis,'X'))
