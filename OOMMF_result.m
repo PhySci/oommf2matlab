@@ -2,7 +2,7 @@
 classdef OOMMF_result < hgsetget % subclass hgsetget
  
  properties
-   fName = 'fname'; % name of file(-s), which contains results
+   fName = ''; % name of file(-s), which contains results
    meshunit = 'm';
    meshtype = 'rectangular';
    xbase
@@ -35,17 +35,24 @@ classdef OOMMF_result < hgsetget % subclass hgsetget
    
    function loadMFile(obj,varargin)
        %% open file and check errors
-     fName = strcat(obj.fName,'.omf'); 
-     fid = fopen(fName);
-     if ((fid == -1))
-       disp('File not found');
-       return;
-     end
      
      p = inputParser;
      p.addParamValue('showMemory',false,@islogical);
      p.parse(varargin{:});
      params = p.Results;
+     
+     if (~strcmp(obj.fName,''))
+       fName = strcat(obj.fName,'.omf');
+     else
+       [fName,fPath,~] = uigetfile({'*.odt'});
+       fName = fullfile(fPath,fName);  
+     end    
+     
+     fid = fopen(fName);
+     if ((fid == -1))
+       disp('File not found');
+       return;
+     end
      
      expr = '^#\s([\w\s:]+):\s([-.0-9e]+)';
      
@@ -161,7 +168,7 @@ classdef OOMMF_result < hgsetget % subclass hgsetget
      
      p.addParamValue('saveImg',false,@islogical);
      p.addParamValue('saveImgPath','');
-     p.addParamValue('colourRange',0,@isnumerical);
+     p.addParamValue('colourRange',0,@isnumeric);
      p.addParamValue('showScale',true,@islogical);
      
      p.parse(slice,proj,varargin{:});
@@ -265,7 +272,7 @@ classdef OOMMF_result < hgsetget % subclass hgsetget
          
     end
     
-    G = fspecial('gaussian',[9 9],0.2);
+    G = fspecial('gaussian',[9 9],0.8);
     Ig = imfilter(data,G,'circular','same','conv');
 	handler = imagesc(Ig);
 	axis xy;
@@ -274,30 +281,27 @@ classdef OOMMF_result < hgsetget % subclass hgsetget
 	set(hcb,'XTick',[-params.colourRange,0,params.colourRange])
     
     if (params.showScale)
-     % axis([eval(strcat('obj.',lower(axis1),'min')),...
-     %       eval(strcat('obj.',lower(axis1),'max')),...
-     %       eval(strcat('obj.',lower(axis2),'min')),...
-     %       eval(strcat('obj.',lower(axis2),'max'))]);
       xlabel(strcat(axis1,'(\mum)'), 'FontSize', 10);
       ylabel(strcat(axis2,' (\mum)'), 'FontSize', 10);
+      set(gca,'XTick',[1,...
+                     ceil((1+eval(strcat('obj.',lower(axis1),'nodes')))/2),...
+                     eval(strcat('obj.',lower(axis1),'nodes'))],...
+              'XTickLabel',[eval(strcat('obj.',lower(axis1),'min'))/1e-6,...
+                      0.5*(eval(strcat('obj.',lower(axis1),'min'))+eval(strcat('obj.',lower(axis1),'max')))/1e-6,...
+                      eval(strcat('obj.',lower(axis1),'max'))/1e-6]);
+                  
+      set(gca,'YTick',[1,...
+                     ceil((1+eval(strcat('obj.',lower(axis2),'nodes')))/2),...
+                     eval(strcat('obj.',lower(axis2),'nodes'))],...
+              'YTickLabel',[eval(strcat('obj.',lower(axis2),'min'))/1e-6,...
+                      0.5*(eval(strcat('obj.',lower(axis2),'min'))+eval(strcat('obj.',lower(axis2),'max')))/1e-6,...
+                      eval(strcat('obj.',lower(axis2),'max'))/1e-6]);
     else
       axis([0,size(data,2),0,size(data,1)]);
       xlabel(strcat(axis1,'(cell #)'), 'FontSize', 10);
       ylabel(strcat(axis2,' (cell #)'), 'FontSize', 10);
     end    
-    set(gca,'XTick',[1,...
-                     ceil((1+eval(strcat('obj.',lower(axis1),'nodes')))/2),...
-                     eval(strcat('obj.',lower(axis1),'nodes'))],...
-        'XTickLabel',[eval(strcat('obj.',lower(axis1),'min'))/1e-6,...
-                      0.5*(eval(strcat('obj.',lower(axis1),'min'))+eval(strcat('obj.',lower(axis1),'max')))/1e-6,...
-                      eval(strcat('obj.',lower(axis1),'max'))/1e-6]);
-                  
-    set(gca,'YTick',[1,...
-                     ceil((1+eval(strcat('obj.',lower(axis2),'nodes')))/2),...
-                     eval(strcat('obj.',lower(axis2),'nodes'))],...
-        'YTickLabel',[eval(strcat('obj.',lower(axis2),'min'))/1e-6,...
-                      0.5*(eval(strcat('obj.',lower(axis2),'min'))+eval(strcat('obj.',lower(axis2),'max')))/1e-6,...
-                      eval(strcat('obj.',lower(axis2),'max'))/1e-6]);
+
                   
 	set(hcb,'FontSize', 15);
     title(strcat('view along ',viewAxis,' axis, M',params.proj,' projection',...

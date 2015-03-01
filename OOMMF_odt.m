@@ -54,7 +54,6 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
        while (~feof(fid))
          line = fgetl(fid);
          if (isempty(strfind(line,'#')))
-           disp(line);  
            data(end+1,:) = parseDigitalStr(line);
          end
        end
@@ -97,11 +96,11 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
      end
    end
    
-   function plotZFFT(obj)
-     Y = fftshift(abs(fft(obj.Mz(1255:end))));
+   function plotZFFT(obj,varargin)
+     p = inputParser;  
+     Y = fftshift(abs(fft(obj.Mz)));
      freq = linspace(-0.5/obj.dt,0.5/obj.dt,size(Y,1))/1e9;  
-     plot(freq,Y); xlabel('Freq, GHz');
-     xlim([0,10]);
+     semilogy(freq,Y); xlabel('Freq, GHz'); xlim([0,10]);
    end    
      
  end
