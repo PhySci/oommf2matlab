@@ -170,13 +170,16 @@ classdef OOMMF_result < hgsetget % subclass hgsetget
      p.addParamValue('saveImgPath','');
      p.addParamValue('colourRange',0,@isnumeric);
      p.addParamValue('showScale',true,@islogical);
+     p.addParamValue('xrange',0,@isnumeric);
+     p.addParamValue('yrange',0,@isnumeric);
      
      p.parse(slice,proj,varargin{:});
      params = p.Results;
        
      handler = obj.abstractPlot('Z',params.slice,params.proj,...
          'saveImg',params.saveImg,'saveImgPath',params.saveImgPath,...
-         'colourRange',params.colourRange,'showScale',params.showScale);                  
+         'colourRange',params.colourRange,'showScale',params.showScale,...
+         'xrange',params.xrange,'yrange',params.yrange);                  
    end
    
    % plot vector plot of magnetisation in XY plane
@@ -190,6 +193,8 @@ classdef OOMMF_result < hgsetget % subclass hgsetget
      p.addParamValue('saveImgPath','');
      p.addParamValue('colourRange',0,@isnumerical);
      p.addParamValue('showScale',true,@islogical);
+     p.addParamValue('xrange',0,@isnumerical);
+     p.addParamValue('yrange',0,@isnumerical);
      
      p.parse(slice,proj,varargin{:});
      params = p.Results;
@@ -236,6 +241,8 @@ classdef OOMMF_result < hgsetget % subclass hgsetget
      p.addParamValue('saveImgPath','');
      p.addParamValue('colourRange',0,@isnumeric);
      p.addParamValue('showScale',true,@islogical);
+     p.addParamValue('xrange',0,@isnumeric);
+     p.addParamValue('yrange',0,@isnumeric);
      
      p.parse(viewAxis,slice,proj,varargin{:});
      params = p.Results;
@@ -272,7 +279,8 @@ classdef OOMMF_result < hgsetget % subclass hgsetget
          
     end
     
-    G = fspecial('gaussian',[9 9],0.8);
+    %G = fspecial('gaussian',10,10);
+    G = fspecial('average',7);
     Ig = imfilter(data,G,'circular','same','conv');
 	handler = imagesc(Ig);
 	axis xy;
@@ -300,8 +308,18 @@ classdef OOMMF_result < hgsetget % subclass hgsetget
       axis([0,size(data,2),0,size(data,1)]);
       xlabel(strcat(axis1,'(cell #)'), 'FontSize', 10);
       ylabel(strcat(axis2,' (cell #)'), 'FontSize', 10);
-    end    
+    end
 
+     % set X limit 
+    if (params.xrange ~=0)
+       xlim(params.xrange);
+    end    
+    
+     % set Y limit 
+    if (params.yrange ~=0)
+       ylim(params.yrange);
+    end    
+    
                   
 	set(hcb,'FontSize', 15);
     title(strcat('view along ',viewAxis,' axis, M',params.proj,' projection',...
@@ -310,7 +328,7 @@ classdef OOMMF_result < hgsetget % subclass hgsetget
       imgName = strcat(params.saveImgPath,'\',...
                        'Image_Along',viewAxis,...
                        '_Slice',num2str(slice),...
-                       '_M',symb(proj),...
+                       '_M',lower(params.proj),...
                        '_iter',num2str(obj.iteration),...
                        '.png');
 	  saveas(handler, imgName);
