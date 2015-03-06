@@ -16,7 +16,7 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
  
  methods
    
-     % load odt file
+     % load odt file and parse content
    function loadFile(obj,varargin)
      p = inputParser;
      p.addParamValue('path','');
@@ -70,6 +70,7 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
      
      fclose(fid);
      obj.data = data(2:end,:);
+     obj.parse;
    end  
    
      % find magnetization projections and time 
@@ -96,6 +97,7 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
      end
    end
    
+    % plot FFT for Mz magnetisation
    function plotZFFT(obj,varargin)
      p = inputParser;  
      Y = fftshift(abs(fft(obj.Mz)));
