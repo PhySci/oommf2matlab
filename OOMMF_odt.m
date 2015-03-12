@@ -10,6 +10,10 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
    Mx
    My
    Mz
+   B
+   Bx
+   By
+   Bz
    time
    dt
  end
@@ -99,10 +103,21 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
    
     % plot FFT for Mz magnetisation
    function plotZFFT(obj,varargin)
-     p = inputParser;  
+     p = inputParser;
+     p.addParamValue('scale','norm',@(x) ismember(x,{'norm','log'}));
+     p.parse(varargin{:});
+     params = p.Results; 
+     
      Y = fftshift(abs(fft(obj.Mz)));
-     freq = linspace(-0.5/obj.dt,0.5/obj.dt,size(Y,1))/1e9;  
-     semilogy(freq,Y); xlabel('Freq, GHz'); xlim([0,10]);
+     freq = linspace(-0.5/obj.dt,0.5/obj.dt,size(Y,1))/1e9;
+     
+     if strcmp(params.scale,'norm')
+       plot(freq,Y);
+     else
+       semilogy(freq,Y);  
+     end    
+     
+      xlabel('Freq, GHz'); xlim([0,10]);
    end    
      
  end
