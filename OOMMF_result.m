@@ -33,7 +33,7 @@ classdef OOMMF_result < hgsetget % subclass hgsetget
          disp('OOMMF_result object was created');
    end
    
-   function loadMFile(obj,varargin)
+   function loadFile(obj,varargin)
        %% open file and check errors
      
      p = inputParser;
@@ -133,7 +133,8 @@ classdef OOMMF_result < hgsetget % subclass hgsetget
     % Mag(x y z dim)
     Mraw = reshape(data,[obj.dim obj.znodes*obj.ynodes*obj.xnodes]);
     Mraw = permute(Mraw,[2 1]); % <-- fine
-    obj.Mraw = reshape(Mraw, [obj.xnodes, obj.ynodes, obj.znodes, obj.dim]);
+    Mraw = reshape(Mraw, [obj.xnodes, obj.ynodes, obj.znodes, obj.dim]);
+    obj.Mraw = sparse(Mraw(:));
     data =[];
     Mraw = [];
     if (params.showMemory)
