@@ -38,7 +38,7 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
        return;
      end
      
-     obj.fName = path;
+     obj.fName = params.path;
   
      [IOmess, errnum] = ferror(fid);
      if (errnum ~= 0)
@@ -116,11 +116,60 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
      else
        semilogy(freq,Y);  
      end    
-     
-      xlabel('Freq, GHz'); xlim([0,10]);
+      xlabel('Freq, GHz'); xlim([0,15]);
+      ylabel('FFT intensity');
    end    
      
+   % plot FFT for Mx magnetisation
+   function plotXFFT(obj,varargin)
+     p = inputParser;
+     p.addParamValue('scale','norm',@(x) ismember(x,{'norm','log'}));
+     p.addParamValue('saveImg',false,@islogical);
+     p.parse(varargin{:});
+     params = p.Results; 
+     
+     Y = fftshift(abs(fft(obj.Mx)));
+     freq = linspace(-0.5/obj.dt,0.5/obj.dt,size(Y,1))/1e9;
+     
+     fig1 = figure();
+     if strcmp(params.scale,'norm')
+       plot(freq,Y);
+     else
+       semilogy(freq,Y);  
+     end    
+       xlabel('Freq, GHz'); xlim([0,30]);
+       ylabel('FFT intensity');
+     
+     title(strcat('FFT of M_x projection.'));
+     
+     if (params.saveImg)
+       [fName, errFlag] = generateFileName('.','odtXFFT','png');
+       print(fig1,'-dpng','-r300',fName);
+     end
+     
+   end
+   
+   % plot FFT for My magnetisation
+   function plotYFFT(obj,varargin)
+     p = inputParser;
+     p.addParamValue('scale','norm',@(x) ismember(x,{'norm','log'}));
+     p.parse(varargin{:});
+     params = p.Results; 
+     
+     Y = fftshift(abs(fft(obj.My)));
+     freq = linspace(-0.5/obj.dt,0.5/obj.dt,size(Y,1))/1e9;
+     
+     if strcmp(params.scale,'norm')
+       plot(freq,Y);
+     else
+       semilogy(freq,Y);  
+     end    
+      xlabel('Freq, GHz'); xlim([0,15]);
+      ylabel('FFT intensity');
+   end
+   
  end
+ 
 end
 
 function res = parseTextStr(str)

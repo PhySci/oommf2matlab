@@ -133,8 +133,7 @@ classdef OOMMF_result < hgsetget % subclass hgsetget
     % Mag(x y z dim)
     Mraw = reshape(data,[obj.dim obj.znodes*obj.ynodes*obj.xnodes]);
     Mraw = permute(Mraw,[2 1]); % <-- fine
-    Mraw = reshape(Mraw, [obj.xnodes, obj.ynodes, obj.znodes, obj.dim]);
-    obj.Mraw = sparse(Mraw(:));
+    obj.Mraw = reshape(Mraw, [obj.xnodes, obj.ynodes, obj.znodes, obj.dim]);
     data =[];
     Mraw = [];
     if (params.showMemory)
@@ -299,7 +298,7 @@ classdef OOMMF_result < hgsetget % subclass hgsetget
          
     end
     
-    G = fspecial('gaussian',[3 3],0.5);
+    G = fspecial('gaussian',[3 3],0.9);
     %G = fspecial('average',7);
     if (params.rotate)
       data =  data.';
@@ -312,8 +311,8 @@ classdef OOMMF_result < hgsetget % subclass hgsetget
 	handler = imagesc(Ig, [-500 500]);
 	axis xy;
     
-    % colormap(b2r(-params.colourRange,params.colourRange));
-    colormap(copper);
+    colormap(b2r(-params.colourRange,params.colourRange));
+    %colormap(copper);
     
 	hcb=colorbar('EastOutside');
 	set(hcb,'XTick',[-params.colourRange,0,params.colourRange]);
@@ -409,7 +408,7 @@ classdef OOMMF_result < hgsetget % subclass hgsetget
        [~, fName, ~] = fileparts(file.name);
        pt = strcat(path,'\',fName);
        obj.fName = pt;
-       obj.loadMFile('showMemory',params.showMemory);
+       obj.loadFile('showMemory',params.showMemory);
        
        if (params.deleteFiles)
            delete(strcat(pt,'.omf'));
@@ -535,9 +534,13 @@ classdef OOMMF_result < hgsetget % subclass hgsetget
    end
  
    %scan folder %path% and select all %ext% files
-   function fList = getFilesList(obj,path,ext)
-     if (isdir(path))   
-       fList = dir(strcat(path,'\*.',ext));
+   function fList = getFilesList(obj,path,fileBase,ext)
+     if (isdir(path))
+       if length(fileBase)  
+           fList = dir(strcat(path,'\',fileBase,'*.',ext));
+       else
+           fList = dir(strcat(path,'\*.',ext));
+       end    
      else
        disp('Incorrect folder path');
        return;
