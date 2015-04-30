@@ -1,4 +1,4 @@
-%% Scan folder, search objects, plot Z projection of magnetisation
+% Scan folder, search objects, plot Z projection of magnetisation
 % make a movie
 function makeMovie(varargin)
 
