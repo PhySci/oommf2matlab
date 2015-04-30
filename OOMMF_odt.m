@@ -15,7 +15,8 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
    By
    Bz
    time
-   dt
+   dt = 0
+   freqScale
  end
  
  methods
@@ -75,6 +76,7 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
      fclose(fid);
      obj.data = data(2:end,:);
      obj.parse;
+     obj.calcFreqScale
    end  
    
      % find magnetization projections and time 
@@ -167,6 +169,13 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
       xlabel('Freq, GHz'); xlim([0,15]);
       ylabel('FFT intensity');
    end
+   
+   % calculate frequency scale 
+   function calcFreqScale(obj)
+       if (obj.dt>0) && (size(obj.time,1)>0)
+           obj.freqScale = linspace(-0.5/obj.dt,0.5/obj.dt,size(obj.time,1));
+       end    
+   end    
    
  end
  

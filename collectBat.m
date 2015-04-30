@@ -9,11 +9,11 @@ function collectBat(inp)
     avg = 9;
     dt = 2e-11;
     ystep = 500e-9;
-    plotSpecs = false;
+    plotSpecs = true;
 
     freqLimit = [0.1 10];
     ylimits = [1 80];
-    y = ystep*linspace(yFirstCell,yLastCell,max(ylimits))/1e-6;
+    y = ystep*linspace(-10,30,max(ylimits));
     
     
     if (strcmp(viewAlong,'Y'))
@@ -48,11 +48,10 @@ function collectBat(inp)
     
     freq = linspace(-1/(2*dt),1/(2*dt),size(res,1))/1e9;
 
-    Mx = mean(mean(res(:,:,:,:,1),3),4);
     Mz = mean(mean(res(:,:,:,:,3),3),4);
 
-    Yx =  fftshift(abs(fft(Mx,[],1)),1);
-    Yz =  fftshift(abs(fft(Mz,[],1)),1);
+    Yz =  matfile('D:\Micromagnet\OOMMF\proj\TransducerAPL\center\pulse\matlab\YzFFT.mat');
+    fftshift(abs(fft(Mz,[],1)),1);
 
     % plot FFT spectra of slices
     if (plotSpecs)
@@ -66,13 +65,13 @@ function collectBat(inp)
                 title(strcat('FFT transform of Mz component. Slice ',viewAlong,' = ',num2str(y(i)),' \mum'));
                 imgName = strcat('_Slice',num2str(y(i)),'.png');
             [fName, errFlag] = generateFileName('.','Slice','png');
+            pause;
             print(fig1,'-dpng','-r300',fName);
-            %pause;
-
+        
         end
     end
     save FFTtransform.mat Yx Yz;
-
+ 
     Ypos = y(ylimits(1):ylimits(2));
 
     % plot Mz(y,Freq) map

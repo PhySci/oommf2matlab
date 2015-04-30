@@ -1,8 +1,9 @@
-% Class for processing results of OOMMF simulations 
-classdef OOMMF_result < hgsetget % subclass hgsetget
+% Class for processing results of OOMMF simulations
+% It was developed based on experience of using of OOMMF_result
+classdef OOMMF_sim < hgsetget % subclass hgsetget
  
  properties
-   fName = ''; % name of file(-s), which contains results
+   folder = ''; % path to folder with mat files
    meshunit = 'm';
    meshtype = 'rectangular';
    xbase
@@ -29,8 +30,8 @@ classdef OOMMF_result < hgsetget % subclass hgsetget
  end
  
  methods
-   function obj = OOMMF_result()
-         disp('OOMMF_result object was created');
+   function obj = OOMMF_sim()
+         disp('OOMMF_sim object was created');
    end
    
    function loadFile(obj,varargin)
@@ -131,8 +132,6 @@ classdef OOMMF_result < hgsetget % subclass hgsetget
     end
     
     % Mag(x y z dim)
-    % TODO This code below is very slow, because two reshapes and
-    % one permute are used
     Mraw = reshape(data,[obj.dim obj.znodes*obj.ynodes*obj.xnodes]);
     Mraw = permute(Mraw,[2 1]); % <-- fine
     obj.Mraw = reshape(Mraw, [obj.xnodes, obj.ynodes, obj.znodes, obj.dim]);
@@ -375,7 +374,7 @@ classdef OOMMF_result < hgsetget % subclass hgsetget
     clear data;
    end
    
-   % scan folder, load all *.omf files, save objects
+     % scan folder, load all *.omf files, save objects
    % path - path to the folder
    % saveObj - save an objects?
    % savePath - path to save objects 
@@ -384,29 +383,44 @@ classdef OOMMF_result < hgsetget % subclass hgsetget
      p = inputParser;
      p.addRequired('path',@ischar);
      p.addParamValue('deleteFiles', false,@islogical);
-     p.addParamValue('saveObj',false,@islogical);
-     p.addParamValue('savePath','');
      p.addParamValue('showMemory',false,@islogical);
      p.addParamValue('makeFFT',false,@islogical);
      p.addParamValue('fileBase','',@isstr);
+     p.addParamValue('savePath','',@isstr);
      
      p.parse(path,varargin{:});
      params = p.Results;
      
-     fList = obj.getFilesList(path,params.fileBase,'omf');
-     Mx = zeros(size(fList,1),obj.xnodes,obj.ynodes,obj.znodes);
-     My = Mx;
-     Mz = Mx;
-          
+     if strcmp(params.savePath,'')
+         savePath = path;
+     else
+         savePath = params.savePath; 
+     end
+     
+                
+     fList = obj.getFilesList(path,params.fileBase,'omf');     
      file = fList(1);
      [~, fName, ~] = fileparts(file.name);
      pt = strcat(path,'\',fName);
      obj.fName = pt;
      obj.loadFile('showMemory',params.showMemory);
-     save(strcat(path,'\params.mat'), 'obj');
-     Mx(1,:,:,:) = obj.Mraw(:,:,:,1);
-     My(1,:,:,:) = obj.Mraw(:,:,:,2);
-     Mz(1,:,:,:) = obj.Mraw(:,:,:,3);
+     save(strcat(savePath,'\params.mat'), 'obj');
+       
+     % create files and variables   
+     MxFile = matfile(strcat(savePath,'\Mx.mat'),'Writable',true);
+     MxFile.Mx = zeros(1,size(obj.Mraw,1),size(obj.Mraw,2),size(obj.Mraw,3));
+     tmp(1,:,:,:) =  obj.Mraw(:,:,:,1);
+     MxFile.Mx(1,:,:,:) = tmp;
+  
+     MyFile = matfile(strcat(savePath,'\My.mat'),'Writable',true);
+     MyFile.My = zeros(1,size(obj.Mraw,1),size(obj.Mraw,2),size(obj.Mraw,3));
+     tmp(1,:,:,:) =  obj.Mraw(:,:,:,2);
+     MyFile.My(1,:,:,:) = tmp;
+     
+     MzFile = matfile(strcat(savePath,'\Mz.mat'),'Writable',true);
+     MzFile.Mz = zeros(1,size(obj.Mraw,1),size(obj.Mraw,2),size(obj.Mraw,3));
+     tmp(1,:,:,:) =  obj.Mraw(:,:,:,3);
+     MzFile.Mz(1,:,:,:) = tmp;
      
      for i=2:size(fList,1)
        file = fList(i);
@@ -414,9 +428,15 @@ classdef OOMMF_result < hgsetget % subclass hgsetget
        pt = strcat(path,'\',fName);
        obj.fName = pt;
        obj.loadFile('showMemory',params.showMemory);
-       Mx(i,:,:,:) = obj.Mraw(:,:,:,1);
-       My(i,:,:,:) = obj.Mraw(:,:,:,2);
-       Mz(i,:,:,:) = obj.Mraw(:,:,:,3);
+       
+       tmp(1,:,:,:) = obj.Mraw(:,:,:,1);
+       MxFile.Mx(end+1,:,:,:) = tmp;
+       
+       tmp(1,:,:,:) = obj.Mraw(:,:,:,2);
+       MyFile.My(end+1,:,:,:) = tmp;
+       
+       tmp(1,:,:,:) = obj.Mraw(:,:,:,3);
+       MzFile.Mz(end+1,:,:,:) = tmp;
        
        if (params.deleteFiles)
            delete(strcat(pt,'.omf'));
@@ -424,31 +444,27 @@ classdef OOMMF_result < hgsetget % subclass hgsetget
      end
      
      disp('Save results');
-     save(strcat(path,'\Mx.mat'),'Mx');
-     save(strcat(path,'\My.mat'),'My');
-     save(strcat(path,'\Mz.mat'),'Mz');
+
      
-     if (params.makeFFT)
+     if (false) %params.makeFFT)
         disp('Mx FFT'); 
         Yx = fft(Mx);  
         disp('Save Mx FFT');
-        save(strcat(path,'\MxFFT.mat'),'Yx');
+        save(strcat(savePath,'\MxFFT.mat'),'Yx');
         clearvars Mx Yx
         
-        disp('My FFT'); 
-        Yy = fft(My);  
-        disp('Save Mx FFT');
-        save(strcat(path,'\MyFFT.mat'),'Yy');
+        disp('My FFT');
+        Yy = fft(My);
+        disp('Save My FFT');
+         save(strcat(savePath,'\MyFFT.mat'),'Yy');
         clearvars My Yy
         
         disp('Mz FFT'); 
-        Yz = fft(Mz);  
+        Yz = fft(Mz);
         disp('Save Mz FFT');
-        save(strcat(path,'\MzFFT.mat'),'Yz');
+        save(strcat(savePath,'\MzFFT.mat'),'Yz');
         clearvars Mz Yz    
-     end    
-     
-     
+     end     
    end
    
    function writeMemLog(obj,comment)
@@ -546,7 +562,8 @@ classdef OOMMF_result < hgsetget % subclass hgsetget
        if length(fileBase)  
            fList = dir(strcat(path,'\',fileBase,'*.',ext));
        else
-           fList = dir(strcat(path,'\*.',ext));
+           pth = strcat(path,'\*.',ext)
+           fList = dir(pth);
        end    
      else
        disp('Incorrect folder path');
@@ -561,8 +578,120 @@ classdef OOMMF_result < hgsetget % subclass hgsetget
    
    function res = getVolume(obj,xrange,yrange,zrange,proj)
      res = obj.Mraw(xrange,yrange,zrange,obj.getIndex(proj));  
-   end    
+   end 
+   
+   % method process results of simulations, parse files, save as arrays and
+   % perform Fast Fourier Transformation
+   function res = processCalcResult(obj, path,varargin)
+       p = inputParser;
+       p.addRequired('path',@isdir);
+       p.addParamValue('fileBase','',@isstr)
+
+       p.parse(path,varargin{:});
+       params = p.Results;
  
+       fList = obj.getFilesList(path,params.fileBase,'omf');
+
+        % determine size of arrays
+       tmp = load(strcat(path,'\',fList(1).name));
+       obj = tmp.obj;
+
+       Mx = zeros(size(fList,1),obj.xnodes,obj.ynodes,obj.znodes);
+       My = zeros(size(fList,1),obj.xnodes,obj.ynodes,obj.znodes);
+       Mz = zeros(size(fList,1),obj.xnodes,obj.ynodes,obj.znodes);
+
+       Mx(1,:,:,:) = obj.Mraw(:,:,:,1); 
+       My(1,:,:,:) = obj.Mraw(:,:,:,2);
+       Mz(1,:,:,:) = obj.Mraw(:,:,:,3);
+
+       for fInd = 2:size(fList,1)
+           fPath = strcat(path,'\',fList(fInd).name);
+           tmp = load(fPath);
+           MxArr(fInd,:,:,:) = tmp.obj.Mraw(:,:,:,1); 
+           MyArr(fInd,:,:,:) = tmp.obj.Mraw(:,:,:,2);
+           MzArr(fInd,:,:,:) = tmp.obj.Mraw(:,:,:,3);
+           disp(fInd);
+       end
+       
+       disp('All files have been loaded');
+
+       disp('Start Mx FFT');
+       Yx = fft(Mx);
+       disp('Save Mx FFT');
+       
+       save Mx.mat Mx;
+       Mx = [];
+
+       save YxFFT.mat Yx
+       Yx=[];
+       
+       disp('Start My FFT');
+       Yy = fft(My);
+       disp('Save My FFT');
+       My = [];
+       save YyFFT.mat Yy
+       Yy=[];
+       
+       disp('Start Mz FFT');
+       Yz = fft(MzArr);
+       disp('Save Mz FFT');
+       Mz = [];
+       save YzFFT.mat Yz
+       Yz=[];
+   end
+   
+   % Three function below return data of magnetization projection
+   function res = getMx(obj,tRange,xRange,yRange,zRange)
+   end
+   
+   function res = getMy(obj,tRange,xRange,yRange,zRange)
+   end
+   
+   function res = getMz(obj,tRange,xRange,yRange,zRange)
+   end
+   
+   function plotDispersionX(obj,varargin)
+       p = inputParser;
+       p.addParamValue('xRange',:);
+       p.addParamValue('yRange',:);
+       p.addParamValue('zRange',:);
+       p.addParamValue('scale',''); % <-------- TODO
+       p.addParamValue('freqLimit','');
+       p.addParamValue('waveLimit','');
+       
+       p.parse(varargin{:});
+       params = p.Results;
+       
+       MzFile = matfile(fullfile(obj.folder,'Mz.mat'));
+       Mz = MzFile.Mz(:,params.xRange,params.yRange,params.zRange);
+       
+       waveVectorScale = 2*pi*linspace(-0.5*0.5,0.5*0.5,size(Mz,2));
+       [~,waveVectorInd(1)] = min(abs(waveVectorScale-params.waveLimit(1)));
+       [~,waveVectorInd(2)] = min(abs(waveVectorScale-params.waveLimit(2)));
+       waveVectorScale = waveVectorScale(waveVectorInd(1):waveVectorInd(2));       
+       
+       dt = 2e-11;                   % <-------- TODO 
+       freqScale = linspace(-0.5/dt,0.5/dt,size(Mz,1))/1e9; 
+       [~,freqScaleInd(1)] = min(abs(freqScale-params.freqLimit(1)));
+       [~,freqScaleInd(2)] = min(abs(freqScale-params.freqLimit(2)));
+       freqScale = freqScale(freqScaleInd(1):freqScaleInd(2));
+  
+       Yraw = fft2(Mz);
+       Y = mean(Yraw,4);
+       Y = mean(Yraw,3);
+       
+       Amp = fftshift(abs(Y));
+       Amp = Amp(freqScaleInd(1):freqScaleInd(2),waveVectorInd(1):waveVectorInd(2));
+       imagesc(waveVectorScale,freqScale,log10(Amp/min(Amp(:))));
+       xlabel('Wave vector k, \mum^-^1'); xlim([0 max(waveVectorScale)]);
+       ylabel('Frequency, GHz');
+       axis xy
+       
+       t = colorbar('peer',gca);
+       set(get(t,'ylabel'),'String', 'FFT intensity, dB');
+       
+   end    
+   
  end
 end 
 
