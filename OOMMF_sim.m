@@ -1,14 +1,10 @@
 % Class for processing results of OOMMF simulations
 % It was developed based on experience of using of OOMMF_result
-%% TODO List
-% - check for incorrect path for scanMFolder
-% - check for empty list of files 
-%%
-
 classdef OOMMF_sim < hgsetget % subclass hgsetget
  
  properties
-   fName = ''; % name of file(-s), which contains results
+   fName = ''  
+   folder = ''; % path to folder with mat files
    meshunit = 'm';
    meshtype = 'rectangular';
    xbase
@@ -32,6 +28,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    totalSimTime % total simulation time
    iteration
    memLogFile = 'log.txt';
+   dt = 2e-11; % time step of simulation
  end
  
  methods
@@ -410,56 +407,59 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      obj.fName = pt;
      obj.loadFile('showMemory',params.showMemory);
      save(strcat(savePath,'\params.mat'), 'obj');
-       
-     % create files and variables   
-     MxFile = matfile(strcat(savePath,'\Mx.mat'),'Writable',true);
-     MxFile.Mx = zeros(1,size(obj.Mraw,1),size(obj.Mraw,2),size(obj.Mraw,3));
-     MxFile.Mx(1,:,:,:) = obj.Mraw(:,:,:,1);
-  
-     MyFile = matfile(strcat(savePath,'\My.mat'),'Writable',true);
-     MyFile.My = zeros(1,size(obj.Mraw,1),size(obj.Mraw,2),size(obj.Mraw,3));
-     MyFile.My(1,:,:,:) = obj.Mraw(:,:,:,2);
      
-     MzFile = matfile(strcat(savePath,'\Mz.mat'),'Writable',true);
-     MzFile.Mz = zeros(1,size(obj.Mraw,1),size(obj.Mraw,2),size(obj.Mraw,3));
-     MzFile.Mz(1,:,:,:) = obj.Mraw(:,:,:,3);
-      
+     % create files and variables   
+     Mx = zeros(size(fList,1),obj.xnodes,obj.ynodes,obj.znodes);
+     My = zeros(size(fList,1),obj.xnodes,obj.ynodes,obj.znodes);
+     Mz = zeros(size(fList,1),obj.xnodes,obj.ynodes,obj.znodes);
+     
      for i=2:size(fList,1)
+       disp (i)  
        file = fList(i);
        [~, fName, ~] = fileparts(file.name);
        pt = strcat(path,'\',fName);
        obj.fName = pt;
        obj.loadFile('showMemory',params.showMemory);
        
-       MxFile.Mx(end+1) = obj.Mraw(:,:,:,1);
-       MyFile.My(end+1) = obj.Mraw(:,:,:,2);
-       MzFile.Mz(end+1) = obj.Mraw(:,:,:,3);
+       Mx(i,:,:,:) = obj.Mraw(:,:,:,1);
+       My(i,:,:,:) = obj.Mraw(:,:,:,2);
+       Mz(i,:,:,:) = obj.Mraw(:,:,:,3);
        
        if (params.deleteFiles)
            delete(strcat(pt,'.omf'));
        end                       
      end
      
-     disp('Save results');
+     disp('Save Mx');
+     save(fullfile(savePath,'Mx.mat'),'Mx'); 
 
-     
-     if (false) %params.makeFFT)
+     if (params.makeFFT)
         disp('Mx FFT'); 
         Yx = fft(Mx);  
         disp('Save Mx FFT');
-        save(strcat(savePath,'\MxFFT.mat'),'Yx');
-        clearvars Mx Yx
-        
+        save(fullfile(savePath,'MxFFT.mat'),'Yx');
+        clearvars Mx Yx   
+     end     
+     
+     disp('Save My');
+     save(fullfile(savePath,'My.mat'),'My'); 
+     
+     if (params.makeFFT)
         disp('My FFT');
         Yy = fft(My);
         disp('Save My FFT');
-         save(strcat(savePath,'\MyFFT.mat'),'Yy');
-        clearvars My Yy
-        
+         save(fullfile(savePath,'MyFFT.mat'),'Yy');
+        clearvars My Yy  
+     end
+     
+     disp('Save Mz');
+     save(fullfile(savePath,'Mz.mat'),'Mz'); 
+     
+     if (params.makeFFT)        
         disp('Mz FFT'); 
         Yz = fft(Mz);
         disp('Save Mz FFT');
-        save(strcat(savePath,'\MzFFT.mat'),'Yz');
+        save(fullfile(savePath,'MzFFT.mat'),'Yz');
         clearvars Mz Yz    
      end     
    end
@@ -579,7 +579,6 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    
    % method process results of simulations, parse files, save as arrays and
    % perform Fast Fourier Transformation
-   % IT'S A DOUBLE OF scanMFolder
    function res = processCalcResult(obj, path,varargin)
        p = inputParser;
        p.addRequired('path',@isdir);
@@ -647,6 +646,159 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    
    function res = getMz(obj,tRange,xRange,yRange,zRange)
    end
+   
+   % plot dispersion curve along X axis
+   function plotDispersionX(obj,varargin)
+       p = inputParser;
+       p.addParamValue('xRange',:);
+       p.addParamValue('yRange',:);
+       p.addParamValue('zRange',:);
+       p.addParamValue('scale',''); % <-------- TODO
+       p.addParamValue('freqLimit','');
+       p.addParamValue('waveLimit','');
+       
+       p.parse(varargin{:});
+       params = p.Results;
+       
+       MzFile = matfile(fullfile(obj.folder,'Mz.mat'));
+       Mz = MzFile.Mz(:,params.xRange,params.yRange,params.zRange);
+       
+       waveVectorScale = 2*pi*linspace(-0.5*0.5,0.5*0.5,size(Mz,2));
+       [~,waveVectorInd(1)] = min(abs(waveVectorScale-params.waveLimit(1)));
+       [~,waveVectorInd(2)] = min(abs(waveVectorScale-params.waveLimit(2)));
+       waveVectorScale = waveVectorScale(waveVectorInd(1):waveVectorInd(2));       
+       
+       dt = 2e-11;                   % <-------- TODO 
+       freqScale = linspace(-0.5/dt,0.5/dt,size(Mz,1))/1e9; 
+       [~,freqScaleInd(1)] = min(abs(freqScale-params.freqLimit(1)));
+       [~,freqScaleInd(2)] = min(abs(freqScale-params.freqLimit(2)));
+       freqScale = freqScale(freqScaleInd(1):freqScaleInd(2));
+  
+       Yraw = fft2(Mz);
+       Y = mean(Yraw,4);
+       Y = mean(Yraw,3);
+       
+       Amp = fftshift(abs(Y));
+       Amp = Amp(freqScaleInd(1):freqScaleInd(2),waveVectorInd(1):waveVectorInd(2));
+       imagesc(waveVectorScale,freqScale,log10(Amp/min(Amp(:))));
+       xlabel('Wave vector k, \mum^-^1'); xlim([0 max(waveVectorScale)]);
+       ylabel('Frequency, GHz');
+       axis xy
+       
+       t = colorbar('peer',gca);
+       set(get(t,'ylabel'),'String', 'FFT intensity, dB');      
+   end 
+   
+   % plot spatial map of FFT distribution for a given frequency
+   function plotFFTSliceZ(obj,varargin)
+       p = inputParser;
+   
+       p.addParamValue('freq',0,@isnumeric);
+       p.addParamValue('zSlice',5,@isnumeric);
+       
+       p.parse(varargin{:});
+       params = p.Results;
+       
+       % load parameters
+       tmp = load(fullfile(obj.folder,'params.mat'));
+       simParams = tmp.obj;
+       xScale=linspace(simParams.xmin,simParams.xmax,simParams.xnodes)/1e-6;
+       yScale=linspace(simParams.ymin,simParams.ymax,simParams.ynodes)/1e-6;
+       zScale=linspace(simParams.zmin,simParams.zmax,simParams.znodes)/1e-6;
+       
+       % assign file of FFT of Mz
+       MzFFTFile = matfile(fullfile(obj.folder,'MzFFT.mat'));
+       
+       MzFFTSize = size(MzFFTFile,'Yz');
+       % create freq Scale
+       freqScale = linspace(-0.5/obj.dt,0.5/obj.dt,MzFFTSize(1))/1e9;
+       shiftFreqScale = ifftshift(freqScale);
+       [~,freqInd] = min(abs(shiftFreqScale-params.freq));
+       
+       fftSlice = squeeze(MzFFTFile.Yz(freqInd,:,:,params.zSlice));
+       Amp = abs(fftSlice);
+       Phase = angle(fftSlice);
+       
+       % plot amplitude map
+       subplot(2,1,1);
+           imagesc(xScale,yScale,Amp.');
+           title('Amplitude of FFT');
+           axis xy; hcb=colorbar('EastOutside');
+           set(get(hcb,'ylabel'),'String', 'a.u.');
+           ylabel('Y, \mum'); xlabel('X, \mum'); 
+
+       % plot phase map   
+       subplot(2,1,2);
+          imagesc(xScale,yScale,Phase.',[-pi pi]);
+          title('Phase of FFT');
+          axis xy; hcb=colorbar('EastOutside');
+          set(get(hcb,'ylabel'),'String', 'rad.');
+          ylabel('Y, \mum'); xlabel('X, \mum');
+       
+       
+   end 
+   
+   % plot dependence of FFT intensity on frequency
+   function plotFFTIntensity(obj,varargin)
+       zFFTFile = matfile('MzFFT.mat'); 
+       zFFT = zFFTFile.Yz(:,:,22:60,10);
+       Y = mean(mean(zFFT,2),3);
+       Amp = abs(fftshift(Y));
+       
+       freqScale = linspace(-0.5/obj.dt,0.5/obj.dt,size(Amp,1))/1e9;
+       semilogy(freqScale,Amp);
+       xlim([0 20]); xlabel('Frequency, GHz');
+       ylabel('FFT intensity, a.u.');
+   end
+   
+   % make movie
+   function makeMovie(obj,varargin)
+       
+       p = inputParser;
+       p.addParamValue('xRange',:,@isnumeric);
+       p.addParamValue('zSlice',10,@isnumeric);
+       p.addParamValue('timeFrames',100,@isnumeric);
+       p.addParamValue('yRange',22:60,@isnumeric);
+       p.addParamValue('colourRange',6000);
+       
+       p.parse(varargin{:});
+       params = p.Results;
+       
+       G = fspecial('gaussian',[3 3],0.9);
+       
+       MzFile = matfile('Mz.mat');
+       Mz = squeeze(MzFile.Mz(end-params.timeFrames : end,:,params.yRange,params.zSlice));
+       
+       videoFile = generateFileName('.','movie','mp4')
+       writerObj = VideoWriter(videoFile);
+       writerObj.FrameRate = 10;
+       open(writerObj);
+       
+       % load parameters
+       % calculate axis
+       tmp = load(fullfile(obj.folder,'params.mat'));
+       simParams = tmp.obj;
+       xScale = linspace(simParams.xmin,simParams.xmax,simParams.xnodes)/1e-6;
+       yScale = linspace(simParams.ymin,simParams.ymax,simParams.ynodes)/1e-6;
+       yScale = yScale(params.yRange);
+       
+       fig=figure(1);
+       for timeFrame = 1:size(Mz,1)
+           Ig = imfilter(squeeze(Mz(timeFrame,:,:)).',G,'circular','same','conv');
+           handler = imagesc(xScale,yScale,Ig);
+           axis xy;
+           xlabel('X, \mum'); ylabel('X, \mum'); 
+           writeVideo(writerObj,getframe(fig));
+ 
+           colormap(b2r(-params.colourRange,params.colourRange));
+           %colormap(copper);
+     
+           hcb=colorbar('EastOutside');
+           set(hcb,'XTick',[-params.colourRange,0,params.colourRange]);
+       end   
+       
+       close(writerObj);
+   end    
    
  end
 end 
