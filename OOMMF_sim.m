@@ -654,29 +654,34 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        p.addParamValue('yRange',:);
        p.addParamValue('zRange',:);
        p.addParamValue('scale',''); % <-------- TODO
-       p.addParamValue('freqLimit','');
-       p.addParamValue('waveLimit','');
+       p.addParamValue('freqLimit',[0 15], @isnumeric);
+       p.addParamValue('waveLimit',[0 2],@isnumeric);
+       p.addParamValue('proj','x',@(x)any(strcmp(x,{'X','x','Y','y','Z','z'})));
        
        p.parse(varargin{:});
        params = p.Results;
        
-       MzFile = matfile(fullfile(obj.folder,'Mz.mat'));
-       Mz = MzFile.Mz(:,params.xRange,params.yRange,params.zRange);
+       params.proj = lower(params.proj);
        
-       waveVectorScale = 2*pi*linspace(-0.5*0.5,0.5*0.5,size(Mz,2));
+       MFile = matfile(fullfile(obj.folder,strcat('M',params.proj,'.mat')));
+       evalStr = strcat('MFile.M',params.proj,...
+           '(:,params.xRange,params.yRange,params.zRange)');
+       M = eval(evalStr);
+       
+       dx = 0.5; % 0.5 mkm
+       waveVectorScale = 2*pi*linspace(-0.5/dx,0.5/dx,size(M,2));
        [~,waveVectorInd(1)] = min(abs(waveVectorScale-params.waveLimit(1)));
        [~,waveVectorInd(2)] = min(abs(waveVectorScale-params.waveLimit(2)));
        waveVectorScale = waveVectorScale(waveVectorInd(1):waveVectorInd(2));       
        
-       dt = 2e-11;                   % <-------- TODO 
-       freqScale = linspace(-0.5/dt,0.5/dt,size(Mz,1))/1e9; 
+       freqScale = linspace(-0.5/obj.dt,0.5/obj.dt,size(M,1))/1e9; 
        [~,freqScaleInd(1)] = min(abs(freqScale-params.freqLimit(1)));
        [~,freqScaleInd(2)] = min(abs(freqScale-params.freqLimit(2)));
        freqScale = freqScale(freqScaleInd(1):freqScaleInd(2));
   
-       Yraw = fft2(Mz);
+       Yraw = fft2(M);
        Y = mean(Yraw,4);
-       Y = mean(Yraw,3);
+       Y = squeeze(mean(Y,3));
        
        Amp = fftshift(abs(Y));
        Amp = Amp(freqScaleInd(1):freqScaleInd(2),waveVectorInd(1):waveVectorInd(2));
@@ -738,17 +743,100 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
    end 
    
+    % plot spatial map of FFT distribution for a given frequency
+   function plotFFTSliceY(obj,varargin)
+       p = inputParser;
+   
+       p.addParamValue('freq',0,@isnumeric);
+       p.addParamValue('ySlice',3,@isnumeric);
+       p.addParamValue('zRange',:,@isnumeric);
+       p.addParamValue('scale','log', @(x) any(strcmp(x,{'norm','log'})));
+       
+       p.parse(varargin{:});
+       params = p.Results;
+       
+       % load parameters
+       tmp = load(fullfile(obj.folder,'params.mat'));
+       simParams = tmp.obj;
+       xScale=linspace(simParams.xmin,simParams.xmax,simParams.xnodes)/1e-6;
+       yScale=linspace(simParams.ymin,simParams.ymax,simParams.ynodes)/1e-6;
+       
+       zScale=linspace(simParams.zmin,simParams.zmax,simParams.znodes)/1e-6;
+       zScale = zScale(params.zRange);
+       
+       % assign file of FFT of Mz
+       FFTFile = matfile(fullfile(obj.folder,'MyFFT.mat'));
+       
+       FFTSize = size(FFTFile,'Yy')
+       % create freq Scale
+       freqScale = linspace(-0.5/obj.dt,0.5/obj.dt,FFTSize(1))/1e9;
+       shiftFreqScale = ifftshift(freqScale);
+       [~,freqInd] = min(abs(shiftFreqScale-params.freq))
+       
+       fftSlice = FFTFile.Yy(freqInd,:,:,params.zRange(1):params.zRange(2));
+       
+       
+       if (size(fftSlice,3)>1)
+           fftSlice = squeeze(mean(fftSlice,3));
+       end   
+       
+       
+       Amp = abs(fftSlice);
+       Phase = angle(fftSlice);
+       
+       % plot amplitude map
+       figure();
+       subplot(2,1,1);
+           if strcmp(params.scale,'log')
+               ref = min(Amp(find(Amp(:))));
+               imagesc(xScale,yScale,log10(Amp.'/ref));
+               hcb=colorbar('EastOutside');
+               set(get(hcb,'ylabel'),'String', 'dB');
+           else
+               imagesc(xScale,yScale,log10(Amp.'));
+               hcb=colorbar('EastOutside');
+               set(get(hcb,'ylabel'),'String', 'a.u.');
+           end    
+           title('Amplitude of FFT');
+           axis xy;
+           ylabel('Y, \mum'); xlabel('X, \mum'); 
+
+       % plot phase map   
+       subplot(2,1,2);
+          imagesc(xScale,yScale,Phase.',[-pi pi]);
+          title('Phase of FFT');
+          axis xy; hcb=colorbar('EastOutside');
+          set(get(hcb,'ylabel'),'String', 'rad.');
+          ylabel('Y, \mum'); xlabel('X, \mum');
+       
+       
+   end 
+   
    % plot dependence of FFT intensity on frequency
    function plotFFTIntensity(obj,varargin)
-       zFFTFile = matfile('MzFFT.mat'); 
-       zFFT = zFFTFile.Yz(:,:,22:60,10);
-       Y = mean(mean(zFFT,2),3);
+       
+       p = inputParser;
+       p.addParamValue('label','',@isstr);
+       p.addParamValue('scale','norm', @(x) any(strcmp(x, {'norm','log'})));
+       p.parse(varargin{:});
+       params = p.Results;
+       
+       FFTFile = matfile('MzFFT.mat'); 
+       FFT = FFTFile.Yz(:,:,20:61,1:11);
+       Y = mean(mean(mean(FFT,4),3),2);
        Amp = abs(fftshift(Y));
        
        freqScale = linspace(-0.5/obj.dt,0.5/obj.dt,size(Amp,1))/1e9;
-       semilogy(freqScale,Amp);
+       if (strcmp(params.scale,'norm'))
+           plot(freqScale,Amp);
+       else
+           semilogy(freqScale,Amp);
+       end
        xlim([0 20]); xlabel('Frequency, GHz');
        ylabel('FFT intensity, a.u.');
+       imgName = generateFileName('.','FFTintens','png');
+       title(params.label);
+       print(gcf,'-dpng',imgName);
    end
    
    % make movie
@@ -760,6 +848,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        p.addParamValue('timeFrames',100,@isnumeric);
        p.addParamValue('yRange',22:60,@isnumeric);
        p.addParamValue('colourRange',6000);
+       p.addParamValue('fName','',@isstr);
        
        p.parse(varargin{:});
        params = p.Results;
@@ -769,7 +858,11 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        MzFile = matfile('Mz.mat');
        Mz = squeeze(MzFile.Mz(end-params.timeFrames : end,:,params.yRange,params.zSlice));
        
-       videoFile = generateFileName('.','movie','mp4')
+       if strcmp(params.fName,'')
+           videoFile = generateFileName(pwd,'movie','mp4');
+       else
+           videoFile = fullfile(pwd,strcat(params.fName,'.avi'));
+       end    
        writerObj = VideoWriter(videoFile);
        writerObj.FrameRate = 10;
        open(writerObj);
@@ -787,7 +880,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            Ig = imfilter(squeeze(Mz(timeFrame,:,:)).',G,'circular','same','conv');
            handler = imagesc(xScale,yScale,Ig);
            axis xy;
-           xlabel('X, \mum'); ylabel('X, \mum'); 
+           xlabel('X, \mum'); ylabel('Y, \mum'); 
            writeVideo(writerObj,getframe(fig));
  
            colormap(b2r(-params.colourRange,params.colourRange));
