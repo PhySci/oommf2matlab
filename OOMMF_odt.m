@@ -107,6 +107,8 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
    function plotZFFT(obj,varargin)
      p = inputParser;
      p.addParamValue('scale','norm',@(x) ismember(x,{'norm','log'}));
+     p.addParamValue('saveAs','',@isstr);
+     
      p.parse(varargin{:});
      params = p.Results; 
      
@@ -118,8 +120,16 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
      else
        semilogy(freq,Y);  
      end    
-      xlabel('Freq, GHz'); xlim([0,15]);
-      ylabel('FFT intensity');
+     xlabel('Freq, GHz'); xlim([0,15]);
+     ylabel('FFT intensity');
+     title('FFT of M_z projection');
+      
+     % save img
+     if (~strcmp(params.saveAs,''))
+         savefig(strcat(params.saveAs,'.fig'));
+         print(gcf,'-dpng',strcat(params.saveAs,'.png'));
+     end
+     
    end    
      
    % plot FFT for Mx magnetisation
@@ -160,7 +170,7 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
      
      Y = fftshift(abs(fft(obj.My)));
      freq = linspace(-0.5/obj.dt,0.5/obj.dt,size(Y,1))/1e9;
-     
+     title('FFT of M_y');     
      if strcmp(params.scale,'norm')
        plot(freq,Y);
      else
@@ -168,6 +178,7 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
      end    
       xlabel('Freq, GHz'); xlim([0,15]);
       ylabel('FFT intensity');
+
    end
    
    % calculate frequency scale 

@@ -38,31 +38,30 @@ classdef KERR_img < hgsetget
             if (pFileId <0)
                 disp('Reading of parameters');
                 disp(errMsg);
-                return
+            else
+                expr = '^([\w_()]+)\s([-.0-9e]+)';
+                while ~feof(pFileId)              
+                    line = fgetl(pFileId);
+                    [~, ~, ~, ~, tokenStr, ~, splitStr] = regexp(line,expr);
+                   if (length(tokenStr) == 1 && length(tokenStr{1,1}) == 2) 
+                       switch tokenStr{1,1}{1}
+                           case 'x_step_number'
+                               obj.xNodes = str2double(tokenStr{1,1}{2});
+                           case 'x_start_(um)'
+                               obj.xStart = str2double(tokenStr{1,1}{2});
+                           case 'x_stop_(um)'
+                               obj.xStop = str2double(tokenStr{1,1}{2});
+
+                           case 'y_step_number'
+                               obj.yNodes = str2double(tokenStr{1,1}{2});
+                           case 'y_start_(um)'
+                               obj.yStart = str2double(tokenStr{1,1}{2});
+                           case 'y_stop_(um)'
+                               obj.yStop = str2double(tokenStr{1,1}{2});                           
+                       end        
+                   end    
+                end
             end
-            
-            expr = '^([\w_()]+)\s([-.0-9e]+)';
-            while ~feof(pFileId)              
-                line = fgetl(pFileId);
-                [~, ~, ~, ~, tokenStr, ~, splitStr] = regexp(line,expr);
-               if (length(tokenStr) == 1 && length(tokenStr{1,1}) == 2) 
-                   switch tokenStr{1,1}{1}
-                       case 'x_step_number'
-                           obj.xNodes = str2double(tokenStr{1,1}{2});
-                       case 'x_start_(um)'
-                           obj.xStart = str2double(tokenStr{1,1}{2});
-                       case 'x_stop_(um)'
-                           obj.xStop = str2double(tokenStr{1,1}{2});
-                           
-                       case 'y_step_number'
-                           obj.yNodes = str2double(tokenStr{1,1}{2});
-                       case 'y_start_(um)'
-                           obj.yStart = str2double(tokenStr{1,1}{2});
-                       case 'y_stop_(um)'
-                           obj.yStop = str2double(tokenStr{1,1}{2});                           
-                   end        
-               end    
-            end    
             
             %%%%%%%%%%%%%%%%%%%%%%%%%% 
             % Read reflectivity file %
@@ -106,8 +105,9 @@ classdef KERR_img < hgsetget
             end    
             
             imagesc(obj.getXScale,obj.getYScale,obj.ref);
-            axis xy;
-            colormap(copper);
+            axis xy; colormap(copper);
+            xlabel('X,\mum'); ylabel('Y,\mum');
+            title(strcat('Reflectivity .',obj.fName));
         end    
          
         % plot Kerr data
@@ -119,8 +119,9 @@ classdef KERR_img < hgsetget
             end    
             
             imagesc(obj.getXScale,obj.getYScale,obj.kerr);
-            axis xy;
-            colormap(copper);
+            axis xy; colormap(copper);
+            xlabel('X,\mum'); ylabel('Y,\mum');
+            title(strcat('Kerr rotation ',obj.fName));
         end
         
         function res = getXScale(obj)
@@ -130,7 +131,7 @@ classdef KERR_img < hgsetget
         function res = getYScale(obj)
            res = linspace(obj.yStart,obj.yStop,obj.yNodes);  
         end
-        
+         
     end
     
     
