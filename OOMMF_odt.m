@@ -108,11 +108,12 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
      p = inputParser;
      p.addParamValue('scale','norm',@(x) ismember(x,{'norm','log'}));
      p.addParamValue('saveAs','',@isstr);
+     p.addParamValue('xScale',[0 15],@isnumeric);
      
      p.parse(varargin{:});
      params = p.Results; 
      
-     Y = fftshift(abs(fft(obj.Mz)));
+     Y = fftshift(abs(fft(obj.Mz(500:end))));
      freq = linspace(-0.5/obj.dt,0.5/obj.dt,size(Y,1))/1e9;
      
      if strcmp(params.scale,'norm')
@@ -120,7 +121,7 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
      else
        semilogy(freq,Y);  
      end    
-     xlabel('Freq, GHz'); xlim([0,15]);
+     xlabel('Freq, GHz'); xlim(params.xScale);
      ylabel('FFT intensity');
      title('FFT of M_z projection');
       
