@@ -113,7 +113,7 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
      p.parse(varargin{:});
      params = p.Results; 
      
-     Y = fftshift(abs(fft(obj.Mz(500:end))));
+     Y = fftshift(abs(fft(obj.Mz(1:end))));
      freq = linspace(-0.5/obj.dt,0.5/obj.dt,size(Y,1))/1e9;
      
      if strcmp(params.scale,'norm')
@@ -187,6 +187,23 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
        if (obj.dt>0) && (size(obj.time,1)>0)
            obj.freqScale = linspace(-0.5/obj.dt,0.5/obj.dt,size(obj.time,1));
        end    
+   end    
+   
+   function plotMz(obj,varargin)
+       
+       p = inputParser;
+       p.addParamValue('saveAs','',@isstr);
+       p.parse(varargin{:});
+       params = p.Results; 
+       
+       plot(obj.time/1e-9,obj.Mz);
+       xlim([0 1.01* obj.time(end)/1e-9]);
+       xlabel('Time, ns'); ylabel('M_z, a.u.');
+       
+       if (~strcmp(params.saveAs,''))
+           savefig(strcat(params.saveAs,'.fig'));
+           print(gcf,'-dpng',strcat(params.saveAs,'.png'));
+       end
    end    
    
  end

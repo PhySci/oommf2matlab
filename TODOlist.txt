@@ -1,0 +1,1 @@
++ perform "fftshift" for fourier transformation before save to file. It will allow to easily select only desired range of frequencies for calculation of dispersion curve and spatial distribution of FFT intensity and phase;  
