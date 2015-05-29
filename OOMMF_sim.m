@@ -574,40 +574,6 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
              delete(strcat(pt,'.omf'));
          end                       
      end
-     
-    % disp('Save Mx');
-    % save(fullfile(savePath,'Mx.mat'),'Mx'); 
- 
-    % disp('Save My');
-    % save(fullfile(savePath,'My.mat'),'My'); 
-     
-    % disp('Save Mz');
-    % save(fullfile(savePath,'Mz.mat'),'Mz'); 
-     
-     %% FFT transformation
-     if (params.makeFFT)
-        disp('Mx FFT'); 
-        Yx = fft(Mx);  
-        disp('Save Mx FFT');
-        save(fullfile(savePath,'MxFFT.mat'),'Yx');
-        clearvars Mx Yx   
-     end          
-     
-     if (params.makeFFT)
-        disp('My FFT');
-        Yy = fft(My);
-        disp('Save My FFT');
-        save(fullfile(savePath,'MyFFT.mat'),'Yy');
-        clearvars My Yy  
-     end
-     
-     if (params.makeFFT)        
-        disp('Mz FFT'); 
-        Yz = fft(Mz);
-        disp('Save Mz FFT');
-        save(fullfile(savePath,'MzFFT.mat'),'Yz');
-        clearvars Mz Yz    
-     end     
    end
    
    function writeMemLog(obj,comment)
@@ -731,7 +697,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        p.addParamValue('zRange',0,@isnumeric);
        p.addParamValue('scale',''); % <-------- TODO
        p.addParamValue('freqLimit',[0 15], @isnumeric);
-       p.addParamValue('waveLimit',[0 2],@isnumeric);
+       p.addParamValue('waveLimit',[0 700],@isnumeric);
        p.addParamValue('proj','x',@(x)any(strcmp(x,{'X','x','Y','y','Z','z'})));
        p.addParamValue('saveAs','',@isstr);
        
@@ -754,25 +720,25 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        if (params.zRange == 0)
            params.zRange = [1 mSize(4)];
-       end    
-       
-       % TODO eval set efficiency of matfile to zero
-       % NEVER use eval and matfile together
-       FFTres = MFile.Yz(:,params.xRange(1):params.xRange(2),...
-           params.yRange(1):params.yRange(2),...
-           params.zRange(1):params.zRange(2));
-       
-       dx = 0.5; % 0.5 mkm
-       waveVectorScale = 2*pi*linspace(-0.5/dx,0.5/dx,mSize(2));
-       [~,waveVectorInd(1)] = min(abs(waveVectorScale-params.waveLimit(1)));
-       [~,waveVectorInd(2)] = min(abs(waveVectorScale-params.waveLimit(2)));
-       waveVectorScale = waveVectorScale(waveVectorInd(1):waveVectorInd(2));       
+       end
        
        freqScale = linspace(-0.5/obj.dt,0.5/obj.dt,mSize(1))/1e9; 
        [~,freqScaleInd(1)] = min(abs(freqScale-params.freqLimit(1)));
        [~,freqScaleInd(2)] = min(abs(freqScale-params.freqLimit(2)));
        freqScale = freqScale(freqScaleInd(1):freqScaleInd(2));
        
+       % TODO eval set efficiency of matfile to zero
+       % NEVER use eval and matfile together
+       FFTres = MFile.Yz(freqScaleInd(1):freqScaleInd(2),params.xRange(1):params.xRange(2),...
+           params.yRange(1):params.yRange(2),...
+           params.zRange(1):params.zRange(2));
+       
+       dx = 0.004; % 0.5 mkm
+       waveVectorScale = 2*pi*linspace(-0.5/dx,0.5/dx,mSize(2));
+       [~,waveVectorInd(1)] = min(abs(waveVectorScale-params.waveLimit(1)));
+       [~,waveVectorInd(2)] = min(abs(waveVectorScale-params.waveLimit(2)));
+       waveVectorScale = waveVectorScale(waveVectorInd(1):waveVectorInd(2));       
+              
        
        %for yInd = 1:mSize(3)
        %    disp(yInd)
@@ -782,8 +748,8 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        Y = mean(Yraw,4);
        Y = squeeze(mean(Y,3));
        
-       Amp = fftshift(abs(Y));
-       Amp = Amp(freqScaleInd(1):freqScaleInd(2),waveVectorInd(1):waveVectorInd(2));
+       Amp = fftshift(abs(Y),2);
+       Amp = abs(Y(:,waveVectorInd(1):waveVectorInd(2)));
        
        % plot image
        imagesc(waveVectorScale,freqScale,log10(Amp/min(Amp(:))));
