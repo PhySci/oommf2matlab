@@ -550,7 +550,8 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      MzHeap = zeros(heapSize,obj.xnodes,obj.ynodes,obj.znodes);
      
      indHeap = 1;
-     for i=1:size(fList,1)
+     fileAmount = size(fList,1); 
+     for i=1:fileAmount
          disp (i)
          file = fList(i);
          [~, fName, ~] = fileparts(file.name);
@@ -560,11 +561,11 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
              obj.loadMagnetisation;
                
          % write heaps to files
-         if (indHeap >= heapSize)
+         if (indHeap >= heapSize || i == fileAmount)
              disp('Write to file');
-             MxFile.Mx((i-heapSize+1):i,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = MxHeap(1:end,1:end,1:end,1:end);
-             MyFile.My((i-heapSize+1):i,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = MxHeap(1:end,1:end,1:end,1:end); 
-             MzFile.Mz((i-heapSize+1):i,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = MxHeap(1:end,1:end,1:end,1:end);
+             MxFile.Mx((i-indHeap+1):i,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = MxHeap(1:indHeap,1:end,1:end,1:end);
+             MyFile.My((i-indHeap+1):i,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = MxHeap(1:indHeap,1:end,1:end,1:end); 
+             MzFile.Mz((i-indHeap+1):i,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = MxHeap(1:indHeap,1:end,1:end,1:end);
              indHeap = 1;
          else
              indHeap = indHeap +1;
@@ -696,7 +697,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        p.addParamValue('yRange',0,@isnumeric);
        p.addParamValue('zRange',0,@isnumeric);
        p.addParamValue('scale',''); % <-------- TODO
-       p.addParamValue('freqLimit',[0 15], @isnumeric);
+       p.addParamValue('freqLimit',[0 50], @isnumeric);
        p.addParamValue('waveLimit',[0 700],@isnumeric);
        p.addParamValue('proj','x',@(x)any(strcmp(x,{'X','x','Y','y','Z','z'})));
        p.addParamValue('saveAs','',@isstr);
@@ -727,13 +728,8 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        [~,freqScaleInd(2)] = min(abs(freqScale-params.freqLimit(2)));
        freqScale = freqScale(freqScaleInd(1):freqScaleInd(2));
        
-       % TODO eval set efficiency of matfile to zero
-       % NEVER use eval and matfile together
-       %FFTres = MFile.Yz(freqScaleInd(1):freqScaleInd(2),params.xRange(1):params.xRange(2),...
-       %    params.yRange(1):params.yRange(2),...
-       %    params.zRange(1):params.zRange(2));
        
-       FFTres = MFile.Yz(:,params.xRange(1):params.xRange(2),...
+       FFTres = MFile.Yz(freqScaleInd(1):freqScaleInd(2),params.xRange(1):params.xRange(2),...
            params.yRange(1):params.yRange(2),...
            params.zRange(1):params.zRange(2));
        
@@ -745,33 +741,43 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        waveVectorScale = waveVectorScale(waveVectorInd(1):waveVectorInd(2));       
               
        
-       %for yInd = 1:mSize(3)
-       %    disp(yInd)
-           Yraw(:,:,:,:) = fft(FFTres(:,:,:,:),[],2);
-       %end 
+       Y(:,:,:,:) = fft(FFTres,[],2);
+       clearvars FFTres;
+       Y = mean(mean(Y,4),3);
+       Amp = fftshift(abs(Y),2);
+       clearvars Y;
        
-       Y = mean(Yraw,4);
-       Y = squeeze(mean(Y,3));
+
        
-       %Amp = fftshift(abs(Y),2);
-       %Amp = fftshift(abs(Y(:,waveVectorInd(1):waveVectorInd(2))),2);
-       Amp = fftshift(abs(Y(:,:)),2);
-       
+       Amp = Amp(:,waveVectorInd(1):waveVectorInd(2));
+       ref = min(find(Amp(:))); 
+       dB = log10(Amp/ref);
        % plot image
-       imagesc(waveVectorScale,freqScale,log10(Amp/min(Amp(:))));
-       colormap(jet);
-       xlabel('Wave vector k, \mum^-^1');
-       xlim([min(waveVectorScale) max(waveVectorScale)]);
-       ylabel('Frequency, GHz');
-       axis xy
+       
+       waveNew = linspace(min(waveVectorScale),max(waveVectorScale),50*size(waveVectorScale,2));
+       freqNew = linspace(min(freqScale),max(freqScale),2*size(freqScale,2));
+       
+       [waveGrid,freqGrid]=ndgrid(waveVectorScale,freqScale);
+       [waveGridNew,freqGridNew]=ndgrid(waveNew,freqNew);
+       
+       F = griddedInterpolant(waveGrid,freqGrid,dB.','spline');
+       dBNew = F(waveGridNew,freqGridNew);
+            
+       imagesc(waveNew,freqNew,dBNew.');       
+       colormap(jet); axis xy
+       xlabel('Wave vector k, \mum^-^1');   ylabel('Frequency, GHz');
+       xlim([min(waveNew) max(waveNew)]);
        t = colorbar('peer',gca);
-       set(get(t,'ylabel'),'String', 'FFT intensity, log_1_0(I/I_0)');
+       set(get(t,'ylabel'),'String', 'FFT intensity, dB');
+       
+       
        
        % save img
        if (~strcmp(params.saveAs,''))
            savefig(strcat(params.saveAs,'.fig'));
            print(gcf,'-dpng',strcat(params.saveAs,'.png'));
-       end    
+       end
+       
    end 
    
    % plot spatial map of FFT distribution for a given frequency
@@ -1120,7 +1126,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    end    
    
    function partialFFT(obj,folder,varargin)
-    
+       
        p = inputParser;
        p.addRequired('folder',@isdir);
        p.parse(folder,varargin{:});
@@ -1130,37 +1136,74 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        MFile = matfile(fullfile(folder,'Mx.mat'));
        FFTFile = matfile(fullfile(folder,'MxFFT.mat'),'Writable',true);
        tmp = MFile.Mx;
-       
-       firstSize = size(tmp,1);
-       
+       arrSize = size(tmp);
+       centerInd = floor(0.5*arrSize(1));
        disp('FFT');
        tmp = fft(tmp);
-
        disp('Write');
-       FFTFile.Yx = concat(1,tmp(ceil(0.5*firstSize)+1:end),1:tmp(ceil(0.5*firstSize)));
-
+       
+       FFTFile.Yx(1:centerInd,1:arrSize(2),1:arrSize(3),1:arrSize(4)) = tmp(centerInd+1:end,:,:,:);
+       tmp = tmp(1:centerInd,:,:,:);
+       FFTFile.Yx(centerInd+1:end,1:arrSize(2),1:arrSize(3),1:arrSize(4)) = tmp;
+       
+       
        disp('My');
        MFile = matfile(fullfile(folder,'My.mat'));
        FFTFile = matfile(fullfile(folder,'MyFFT.mat'),'Writable',true);
        tmp = MFile.My;
-
        disp('FFT');
        tmp = fft(tmp);
-
        disp('Write');
-       FFTFile.Yy = concat(1,tmp(ceil(0.5*firstSize)+1:end),1:tmp(ceil(0.5*firstSize)));
-
+       FFTFile.Yy = concat(1,tmp(centerInd+1:end,:,:,:),tmp(1:centerInd,:,:,:));
+       
        disp('Mz');
        MFile = matfile(fullfile(folder,'Mz.mat'));
        FFTFile = matfile(fullfile(folder,'MzFFT.mat'),'Writable',true);
        tmp = MFile.Mz;
-
        disp('FFT');
        tmp = fft(tmp);
 
        disp('Write');
-       FFTFile.Yz = concat(1,tmp(ceil(0.5*firstSize)+1:end),1:tmp(ceil(0.5*firstSize)));
+       FFTFile.Yz(1:centerInd,1:arrSize(2),1:arrSize(3),1:arrSize(4)) = tmp(centerInd+1:end,:,:,:);
+       tmp = tmp(1:centerInd,:,:,:);
+       FFTFile.Yz(centerInd+1:end,1:arrSize(2),1:arrSize(3),1:arrSize(4)) = tmp;
+       
    end
+   
+   function plotYFreqMap(obj,varargin)
+       
+       p = inputParser;
+       p.addParamValue('freqRange',[0.1 20],@isnumeric);
+       p.parse(varargin{:});
+       params = p.Results;
+       
+       tmp = load(fullfile(pwd,'params.mat'));
+       simParams = tmp.obj;
+       
+       
+       YzFile = matfile('MzFFT.mat');
+       arrSize = size(YzFile,'Yz');
+       
+       freqScale = linspace(-0.5/obj.dt,0.5/obj.dt,arrSize(1))/1e9; 
+       [~,freqScaleInd(1)] = min(abs(freqScale-params.freqRange(1)));
+       [~,freqScaleInd(2)] = min(abs(freqScale-params.freqRange(2)));
+       freqScale = freqScale(freqScaleInd(1):freqScaleInd(2));
+       
+       yScale = linspace(simParams.ymin,simParams.ymax,simParams.ynodes)/1e-6;
+       
+       
+       Y = YzFile.Yz(freqScaleInd(1):freqScaleInd(2),191:210,:,18:19);
+       Y = squeeze(mean(mean(Y,4),2));
+       Amp = abs(Y);
+       
+       imagesc(freqScale,yScale,log10(Amp/min(Amp(:))).');
+       axis xy
+       xlabel('Frequency, GHz');   ylabel('y, \mum');
+       
+       t = colorbar('peer',gca);
+       set(get(t,'ylabel'),'String', 'FFT intensity, dB');
+       
+   end    
  end
 end 
 
