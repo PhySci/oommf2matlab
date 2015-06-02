@@ -729,9 +729,14 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        % TODO eval set efficiency of matfile to zero
        % NEVER use eval and matfile together
-       FFTres = MFile.Yz(freqScaleInd(1):freqScaleInd(2),params.xRange(1):params.xRange(2),...
+       %FFTres = MFile.Yz(freqScaleInd(1):freqScaleInd(2),params.xRange(1):params.xRange(2),...
+       %    params.yRange(1):params.yRange(2),...
+       %    params.zRange(1):params.zRange(2));
+       
+       FFTres = MFile.Yz(:,params.xRange(1):params.xRange(2),...
            params.yRange(1):params.yRange(2),...
            params.zRange(1):params.zRange(2));
+       
        
        dx = 0.004; % 0.5 mkm
        waveVectorScale = 2*pi*linspace(-0.5/dx,0.5/dx,mSize(2));
@@ -748,8 +753,9 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        Y = mean(Yraw,4);
        Y = squeeze(mean(Y,3));
        
-       Amp = fftshift(abs(Y),2);
-       Amp = abs(Y(:,waveVectorInd(1):waveVectorInd(2)));
+       %Amp = fftshift(abs(Y),2);
+       %Amp = fftshift(abs(Y(:,waveVectorInd(1):waveVectorInd(2))),2);
+       Amp = fftshift(abs(Y(:,:)),2);
        
        % plot image
        imagesc(waveVectorScale,freqScale,log10(Amp/min(Amp(:))));
@@ -1124,15 +1130,14 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        MFile = matfile(fullfile(folder,'Mx.mat'));
        FFTFile = matfile(fullfile(folder,'MxFFT.mat'),'Writable',true);
        tmp = MFile.Mx;
-
+       
+       firstSize = size(tmp,1);
+       
        disp('FFT');
        tmp = fft(tmp);
 
-       disp('FFT shift'); 
-       tmp = fftshift(tmp);
-
        disp('Write');
-       FFTFile.Yx = tmp;
+       FFTFile.Yx = concat(1,tmp(ceil(0.5*firstSize)+1:end),1:tmp(ceil(0.5*firstSize)));
 
        disp('My');
        MFile = matfile(fullfile(folder,'My.mat'));
@@ -1142,11 +1147,8 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        disp('FFT');
        tmp = fft(tmp);
 
-       disp('FFT shift'); 
-       tmp = fftshift(tmp);
-
        disp('Write');
-       FFTFile.Yy = tmp;
+       FFTFile.Yy = concat(1,tmp(ceil(0.5*firstSize)+1:end),1:tmp(ceil(0.5*firstSize)));
 
        disp('Mz');
        MFile = matfile(fullfile(folder,'Mz.mat'));
@@ -1156,11 +1158,8 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        disp('FFT');
        tmp = fft(tmp);
 
-       disp('FFT shift'); 
-       tmp = fftshift(tmp);
-
        disp('Write');
-       FFTFile.Yz = tmp;
+       FFTFile.Yz = concat(1,tmp(ceil(0.5*firstSize)+1:end),1:tmp(ceil(0.5*firstSize)));
    end
  end
 end 
