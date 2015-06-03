@@ -1144,8 +1144,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        FFTFile.Yx(1:centerInd,1:arrSize(2),1:arrSize(3),1:arrSize(4)) = tmp(centerInd+1:end,:,:,:);
        tmp = tmp(1:centerInd,:,:,:);
-       FFTFile.Yx(centerInd+1:end,1:arrSize(2),1:arrSize(3),1:arrSize(4)) = tmp;
-       
+       FFTFile.Yx(centerInd+1:arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4)) = tmp;
        
        disp('My');
        MFile = matfile(fullfile(folder,'My.mat'));
@@ -1154,7 +1153,9 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        disp('FFT');
        tmp = fft(tmp);
        disp('Write');
-       FFTFile.Yy = concat(1,tmp(centerInd+1:end,:,:,:),tmp(1:centerInd,:,:,:));
+       FFTFile.Yy(1:centerInd,1:arrSize(2),1:arrSize(3),1:arrSize(4)) = tmp(centerInd+1:end,:,:,:);
+       tmp = tmp(1:centerInd,:,:,:);
+       FFTFile.Yy(centerInd+1:arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4)) = tmp;
        
        disp('Mz');
        MFile = matfile(fullfile(folder,'Mz.mat'));
@@ -1162,11 +1163,10 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        tmp = MFile.Mz;
        disp('FFT');
        tmp = fft(tmp);
-
        disp('Write');
        FFTFile.Yz(1:centerInd,1:arrSize(2),1:arrSize(3),1:arrSize(4)) = tmp(centerInd+1:end,:,:,:);
        tmp = tmp(1:centerInd,:,:,:);
-       FFTFile.Yz(centerInd+1:end,1:arrSize(2),1:arrSize(3),1:arrSize(4)) = tmp;
+       FFTFile.Yz(centerInd+1:arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4)) = tmp;
        
    end
    
@@ -1204,6 +1204,85 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        set(get(t,'ylabel'),'String', 'FFT intensity, dB');
        
    end    
+   
+   % plot dependence of intencity on wavelength for given frequency
+   function plotFreqSlice(obj,freq,varargin)
+       p = imputParser;
+       p.addRequired('freq',@isnumeric);
+       p.addParamValue('xRange',[1 200],@isnumeric);
+       p.addParamValue('yRange',[20 61],@isnumeric);
+       p.addParamValue('zRange',[1 10],@isnumeric);
+       p.parse(freq,varargin{:});
+       params = p.Results;
+       
+       tmp = load(fullfile(pwd,'params.mat'));
+       simParams = tmp.obj;
+       
+   end    
+   
+   
+   % plot amplitude and phase of modes in (y,z) coordinates
+   %for given frequency and Kx wave number
+   
+   function plotFreqXWaveSlice(obj,freq,kx,varargin)
+       
+       p = inputParser;
+       p.addRequired('freq',@isnumeric);
+       p.addRequired('kx',@isnumeric);
+       p.addParamValue('yRange',[101 150],@isnumeric);
+       p.addParamValue('zRange',:,@isnumeric);
+       
+       p.parse(freq,kx,varargin{:});
+       params = p.Results;
+       
+       MzFFTfile = matfile(fullfile(pwd,'MzFFT.mat'));
+       arrSize = size(MzFFTfile,'Yz');
+   
+       freqScale = obj.getWaveScale(obj.dt,arrSize(1))/1e9;
+       [~,freqInd] = min(abs(freqScale - params.freq));
+       
+       kxScale = obj.getWaveScale(0.004,arrSize(2)); 
+       [~,kxInd] = min(abs(kxScale - params.kx));
+       
+       Yt = squeeze(MzFFTfile.Yz(freqInd,:,params.yRange(1):params.yRange(2),:));
+       Ytx = fft(Yt,[],1);
+       Ytx = fftshift(Ytx,1);
+       
+       YtxSlice = squeeze(Ytx(kxInd,:,:));
+       
+       Amp = abs(YtxSlice);
+       Phase = angle(YtxSlice);
+       % ref = min(find(Amp(:)));
+       figure(1);
+       subplot(211);
+           imagesc(Amp.');
+           axis xy
+           xlabel('Z'); ylabel('Z');
+           obj.setDbColorbar();
+           colormap(jet);
+           freezeColors;
+           cbfreeze;
+       
+       subplot(212);
+           imagesc(Phase.');
+           axis xy
+           xlabel('Z'); ylabel('Z');
+           colorbar('EastOutside');
+           cblabel('rad.');
+           colormap(hsv); 
+       
+   end 
+   
+   % return array of frequencies of FFT transformation 
+   function res = getWaveScale(obj,delta,Frames)
+       res = linspace(-0.5/delta,0.5/delta,Frames);
+   end    
+   
+   function setDbColorbar(obj)
+       t = colorbar('peer',gca);
+       set(get(t,'ylabel'),'String', 'FFT intensity, dB');
+   end    
+   
  end
 end 
 
