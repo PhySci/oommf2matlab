@@ -739,7 +739,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        [~,freqScaleInd(2)] = min(abs(freqScale-params.freqLimit(2)));
        freqScale = freqScale(freqScaleInd(1):freqScaleInd(2));
        
-       
+       % select required projection of magnetisation
        if (strcmp(params.proj,'z'))
            FFTres = MFile.Yz(freqScaleInd(1):freqScaleInd(2),params.xRange(1):params.xRange(2),...
                params.yRange(1):params.yRange(2),...
@@ -759,7 +759,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
 
        
        dx = 0.004; % 0.5 mkm
-       waveVectorScale = 2*pi*linspace(-0.5/dx,0.5/dx,mSize(2));
+       waveVectorScale = 2*pi*getWaveScale(dx,mSize(2));
        [~,waveVectorInd(1)] = min(abs(waveVectorScale-params.waveLimit(1)));
        [~,waveVectorInd(2)] = min(abs(waveVectorScale-params.waveLimit(2)));
        waveVectorScale = waveVectorScale(waveVectorInd(1):waveVectorInd(2));       
@@ -778,23 +778,47 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        dB = log10(Amp/ref);
        % plot image
        
-       waveNew = linspace(min(waveVectorScale),max(waveVectorScale),50*size(waveVectorScale,2));
-       freqNew = linspace(min(freqScale),max(freqScale),2*size(freqScale,2));
+       waveScaleNew = linspace(min(waveVectorScale),max(waveVectorScale),200);
+       freqScaleNew = linspace(min(freqScale),max(freqScale),200);
        
        [waveGrid,freqGrid]=ndgrid(waveVectorScale,freqScale);
-       [waveGridNew,freqGridNew]=ndgrid(waveNew,freqNew);
+       [waveGridNew,freqGridNew]=ndgrid(waveScaleNew,freqScaleNew);
        
        F = griddedInterpolant(waveGrid,freqGrid,dB.','spline');
        dBNew = F(waveGridNew,freqGridNew);
-            
-       %imagesc(waveNew,freqNew,dBNew.');
-       imagesc(dBNew.');
-       %waveAxis_pos = waveAxis.Position;
-       %imagesc(waveVectorScale,freqScale,dB);       
-       colormap(jet); axis xy
-       %xlabel('Wave vector k, \mum^-^1');   ylabel('Frequency, GHz');
-       %xlim([min(waveNew) max(waveNew)]);
+       
+       figure();
+       imagesc(waveScaleNew,freqScaleNew,dBNew.');
+       colormap(jet); axis xy;
+       
+       xlabel('Wave vector k, \mum^-^1'); ylabel('Frequency, GHz');
        %t = colorbar('peer',gca);
+       obj.setDbColorbar;
+       h1 = gca;
+       set(h1,'box','off');
+       
+       ax=axis;
+
+       [x1LabelPos,x1Label] = calcScaleTicks(waveScaleNew);
+       %set(h1,'XTick',x1LabelPos);
+       %set(h1,'XTickLabel',x1Label);
+       
+       [y1LabelPos,y1Label] = calcScaleTicks(freqScaleNew);
+       %set(h1,'YTick',y1LabelPos);
+       %set(h1,'YTickLabel',y1Label);
+
+       [x2LabelPos,x2Label] = calcScaleTicks(2*pi./waveScaleNew);
+       h2 = axes('position',get(gca,'position'));
+       set(h2,'color','none');
+       axis(ax);
+       set(h2,'XAxisLocation','top');
+       set(h2,'XTick',x1LabelPos);
+       set(h2,'XTickLabel',x1Label);
+       set(h2,'YTickLabel','');
+       set(h2,'YTick',y1LabelPos);
+       set(get(h2,'XLabel'),'String','Wave length \lambda, \mum');
+       
+       
        %set(get(t,'ylabel'),'String', 'FFT intensity, dB');
        
        
@@ -1305,10 +1329,10 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        MzFFTfile = matfile(fullfile(pwd,'MzFFT.mat'));
        arrSize = size(MzFFTfile,'Yz');
    
-       freqScale = obj.getWaveScale(obj.dt,arrSize(1))/1e9;
+       freqScale = getWaveScale(obj.dt,arrSize(1))/1e9;
        [~,freqInd] = min(abs(freqScale - params.freq));
        
-       kxScale = obj.getWaveScale(0.004,arrSize(2)); 
+       kxScale = getWaveScale(0.004,arrSize(2)); 
        [~,kxInd] = min(abs(kxScale - params.kx));
        
        Yt = squeeze(MzFFTfile.Yz(freqInd,:,params.yRange(1):params.yRange(2),:));
@@ -1339,12 +1363,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            colormap(hsv); 
        
    end 
-   
-   % return array of frequencies of FFT transformation 
-   function res = getWaveScale(obj,delta,Frames)
-       res = linspace(-0.5/delta,0.5/delta,Frames);
-   end    
-   
+      
    function setDbColorbar(obj)
        t = colorbar('peer',gca);
        set(get(t,'ylabel'),'String', 'FFT intensity, dB');
@@ -1500,3 +1519,33 @@ end
  %% create greyscale color map
  function newmap = grayMap(cmin_input,cmax_input)
  end
+ 
+    % return array of frequencies of FFT transformation 
+function res = getWaveScale(delta,Frames)
+    res = linspace(-0.5/delta,0.5/delta,Frames);
+end  
+
+function [labelPos,labels] = calcScaleTicks(scale)
+    deltaSet = [0.1 0.2 0.5 1 2 5 10 20 50 100];
+    rawDelta = abs(max(scale)-min(scale))/7;
+    [~,ind]=min(abs(deltaSet - rawDelta));
+    delta = deltaSet(ind);
+    % set of labels for axis
+    rawLabels = ceil((min(scale):delta:max(scale))/delta)*delta;
+    % try to find 
+    labelPos = [];
+    labels = [];
+    for labelInd = 1 : size(rawLabels,2)
+        [~,pos] = min(abs(scale-rawLabels(labelInd)));
+        
+        % skip label if it's very close to previous label
+        if (length(labelPos)>0)
+            if (pos == labelPos(end))
+                continue
+            end    
+        end
+        
+        labelPos = [labelPos pos];
+        labels = [labels rawLabels(labelInd)];
+    end
+end
