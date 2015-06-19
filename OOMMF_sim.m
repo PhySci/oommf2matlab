@@ -28,6 +28,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    iteration
    memLogFile = 'log.txt';
    dt = 1e-11; % time step of simulation
+   staticFile = 'static.stc';
  end
  
  methods
@@ -157,11 +158,21 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      p.parse(varargin{:});
      params = p.Results;
      
-     if (~strcmp(obj.fName,''))
-       fName = strcat(obj.fName,'.omf');
-     else
+     if (strcmp(obj.fName,''))
+         % no name of file
        [fName,fPath,~] = uigetfile({'*.omf'; '*.stc'});
-       fName = fullfile(fPath,fName);  
+       fName = fullfile(fPath,fName);
+     else
+         % there is file name
+       [~,~,ext] =  fileparts(obj.fName);
+       if isempty(ext)
+           % no extension of file
+           fName = strcat(obj.fName,'.omf');
+       else
+           % there is extension
+           fName = obj.fName;
+       end    
+                
      end    
      
      fid = fopen(fName);
@@ -699,7 +710,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        p.addParamValue('scale',''); % <-------- TODO
        p.addParamValue('freqLimit',[0 50], @isnumeric);
        p.addParamValue('waveLimit',[0 700],@isnumeric);
-       p.addParamValue('proj','x',@(x)any(strcmp(x,{'X','x','Y','y','Z','z'})));
+       p.addParamValue('proj','z',@(x)any(strcmp(x,{'X','x','Y','y','Z','z'})));
        p.addParamValue('saveAs','',@isstr);
        
        p.parse(varargin{:});
@@ -729,10 +740,23 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        freqScale = freqScale(freqScaleInd(1):freqScaleInd(2));
        
        
-       FFTres = MFile.Yz(freqScaleInd(1):freqScaleInd(2),params.xRange(1):params.xRange(2),...
-           params.yRange(1):params.yRange(2),...
-           params.zRange(1):params.zRange(2));
-       
+       if (strcmp(params.proj,'z'))
+           FFTres = MFile.Yz(freqScaleInd(1):freqScaleInd(2),params.xRange(1):params.xRange(2),...
+               params.yRange(1):params.yRange(2),...
+               params.zRange(1):params.zRange(2));
+       elseif (strcmp(params.proj,'x'))
+           FFTres = MFile.Yx(freqScaleInd(1):freqScaleInd(2),params.xRange(1):params.xRange(2),...
+               params.yRange(1):params.yRange(2),...
+               params.zRange(1):params.zRange(2));   
+       elseif (strcmp(params.proj,'y'))
+           FFTres = MFile.Yy(freqScaleInd(1):freqScaleInd(2),params.xRange(1):params.xRange(2),...
+               params.yRange(1):params.yRange(2),...
+               params.zRange(1):params.zRange(2));
+       else
+           disp('Unknown projection');
+           return
+       end    
+
        
        dx = 0.004; % 0.5 mkm
        waveVectorScale = 2*pi*linspace(-0.5/dx,0.5/dx,mSize(2));
@@ -763,12 +787,15 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        F = griddedInterpolant(waveGrid,freqGrid,dB.','spline');
        dBNew = F(waveGridNew,freqGridNew);
             
-       imagesc(waveNew,freqNew,dBNew.');       
+       %imagesc(waveNew,freqNew,dBNew.');
+       imagesc(dBNew.');
+       %waveAxis_pos = waveAxis.Position;
+       %imagesc(waveVectorScale,freqScale,dB);       
        colormap(jet); axis xy
-       xlabel('Wave vector k, \mum^-^1');   ylabel('Frequency, GHz');
-       xlim([min(waveNew) max(waveNew)]);
-       t = colorbar('peer',gca);
-       set(get(t,'ylabel'),'String', 'FFT intensity, dB');
+       %xlabel('Wave vector k, \mum^-^1');   ylabel('Frequency, GHz');
+       %xlim([min(waveNew) max(waveNew)]);
+       %t = colorbar('peer',gca);
+       %set(get(t,'ylabel'),'String', 'FFT intensity, dB');
        
        
        
@@ -1125,12 +1152,28 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      
    end    
    
-   function partialFFT(obj,folder,varargin)
+   % perform FFT transformation from time to frequency domain
+   % save results to files
+   % PARAMS
+   %    folder - where take the files (path)
+   %    background - substract background (boolean) 
+   function makeFFT(obj,folder,varargin)
        
        p = inputParser;
        p.addRequired('folder',@isdir);
+       p.addParamValue('background',true,@islogic)
        p.parse(folder,varargin{:});
-       params = p.Results;    
+       params = p.Results;
+       
+       % substract backgroung
+       if (params.background)
+          if (exist(fullfile(params.folder,obj.staticFile),'file') ~= 2)
+              disp('No background file has been found');
+              return
+          end
+          obj.fName = 'static.stc';
+          [Mx,My,Mz] = obj.loadMagnetisation;
+       end    
 
        disp('Mx');
        MFile = matfile(fullfile(folder,'Mx.mat'));
@@ -1138,6 +1181,14 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        tmp = MFile.Mx;
        arrSize = size(tmp);
        centerInd = floor(0.5*arrSize(1));
+       
+       if (params.background)
+           disp('Substract background');
+           for timeInd = 1:arrSize(1)
+               tmp(timeInd,:,:,:) = squeeze(tmp(timeInd,:,:,:)) - Mx; 
+           end
+       end
+       
        disp('FFT');
        tmp = fft(tmp);
        disp('Write');
@@ -1150,6 +1201,14 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        MFile = matfile(fullfile(folder,'My.mat'));
        FFTFile = matfile(fullfile(folder,'MyFFT.mat'),'Writable',true);
        tmp = MFile.My;
+       
+       if (params.background)
+           disp('Substract background');
+           for timeInd = 1:arrSize(1)
+               tmp(timeInd,:,:,:) = squeeze(tmp(timeInd,:,:,:)) - My; 
+           end
+       end
+
        disp('FFT');
        tmp = fft(tmp);
        disp('Write');
@@ -1161,6 +1220,14 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        MFile = matfile(fullfile(folder,'Mz.mat'));
        FFTFile = matfile(fullfile(folder,'MzFFT.mat'),'Writable',true);
        tmp = MFile.Mz;
+       
+       if (params.background)
+           disp('Substract background');
+           for timeInd = 1:arrSize(1)
+               tmp(timeInd,:,:,:) = squeeze(tmp(timeInd,:,:,:)) - Mz; 
+           end
+       end
+       
        disp('FFT');
        tmp = fft(tmp);
        disp('Write');
