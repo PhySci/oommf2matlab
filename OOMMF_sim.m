@@ -575,8 +575,8 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
          if (indHeap >= heapSize || i == fileAmount)
              disp('Write to file');
              MxFile.Mx((i-indHeap+1):i,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = MxHeap(1:indHeap,1:end,1:end,1:end);
-             MyFile.My((i-indHeap+1):i,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = MxHeap(1:indHeap,1:end,1:end,1:end); 
-             MzFile.Mz((i-indHeap+1):i,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = MxHeap(1:indHeap,1:end,1:end,1:end);
+             MyFile.My((i-indHeap+1):i,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = MyHeap(1:indHeap,1:end,1:end,1:end); 
+             MzFile.Mz((i-indHeap+1):i,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = MzHeap(1:indHeap,1:end,1:end,1:end);
              indHeap = 1;
          else
              indHeap = indHeap +1;
@@ -767,12 +767,10 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        Y(:,:,:,:) = fft(FFTres,[],2);
        clearvars FFTres;
-       Y = mean(mean(Y,4),3);
-       Amp = fftshift(abs(Y),2);
+       Amp = mean(mean(abs(Y),4),3);
+       Amp = fftshift(abs(Amp),2);
        clearvars Y;
-       
-
-       
+              
        Amp = Amp(:,waveVectorInd(1):waveVectorInd(2));
        ref = min(find(Amp(:))); 
        dB = log10(Amp/ref);
@@ -1293,7 +1291,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        p = inputParser;
        p.addRequired('freq',@isnumeric);
        p.addRequired('kx',@isnumeric);
-       p.addParamValue('yRange',[81 120],@isnumeric);
+       p.addParamValue('yRange',[101 150],@isnumeric);
        p.addParamValue('zRange',:,@isnumeric);
        
        p.parse(freq,kx,varargin{:});
@@ -1302,10 +1300,10 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        MzFFTfile = matfile(fullfile(pwd,'MzFFT.mat'));
        arrSize = size(MzFFTfile,'Yz');
    
-       freqScale = getWaveScale(obj.dt,arrSize(1))/1e9;
+       freqScale = obj.getWaveScale(obj.dt,arrSize(1))/1e9;
        [~,freqInd] = min(abs(freqScale - params.freq));
        
-       kxScale = getWaveScale(0.004,arrSize(2)); 
+       kxScale = obj.getWaveScale(0.004,arrSize(2)); 
        [~,kxInd] = min(abs(kxScale - params.kx));
        
        Yt = squeeze(MzFFTfile.Yz(freqInd,:,params.yRange(1):params.yRange(2),:));
@@ -1325,7 +1323,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            obj.setDbColorbar();
            colormap(jet);
            freezeColors;
-           cbfreeze;
+           %cbfreeze;
        
        subplot(212);
            imagesc(Phase.');
@@ -1337,7 +1335,11 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
    end 
    
-     
+   % return array of frequencies of FFT transformation 
+   function res = getWaveScale(obj,delta,Frames)
+       res = linspace(-0.5/delta,0.5/delta,Frames);
+   end    
+   
    function setDbColorbar(obj)
        t = colorbar('peer',gca);
        set(get(t,'ylabel'),'String', 'FFT intensity, dB');
@@ -1346,10 +1348,6 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
  end
 end 
 
-% return array of frequencies of FFT transformation 
-function res = getWaveScale(delta,Frames)
-    res = linspace(-0.5/delta,0.5/delta,Frames);
-end  
 
   %% create red-blue color map 
  function newmap = b2r(cmin_input,cmax_input)
