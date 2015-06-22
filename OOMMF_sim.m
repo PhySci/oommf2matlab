@@ -787,15 +787,12 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        F = griddedInterpolant(waveGrid,freqGrid,dB.','spline');
        dBNew = F(waveGridNew,freqGridNew);
             
-       %imagesc(waveNew,freqNew,dBNew.');
-       imagesc(dBNew.');
-       %waveAxis_pos = waveAxis.Position;
-       %imagesc(waveVectorScale,freqScale,dB);       
+       imagesc(waveNew,freqNew,dBNew.');
        colormap(jet); axis xy
-       %xlabel('Wave vector k, \mum^-^1');   ylabel('Frequency, GHz');
-       %xlim([min(waveNew) max(waveNew)]);
-       %t = colorbar('peer',gca);
-       %set(get(t,'ylabel'),'String', 'FFT intensity, dB');
+       xlabel('Wave vector k, \mum^-^1');   ylabel('Frequency, GHz');
+       xlim([min(waveNew) max(waveNew)]);
+       t = colorbar('peer',gca);
+       set(get(t,'ylabel'),'String', 'FFT intensity, dB');
        
        
        
@@ -1296,7 +1293,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        p = inputParser;
        p.addRequired('freq',@isnumeric);
        p.addRequired('kx',@isnumeric);
-       p.addParamValue('yRange',[101 150],@isnumeric);
+       p.addParamValue('yRange',[81 120],@isnumeric);
        p.addParamValue('zRange',:,@isnumeric);
        
        p.parse(freq,kx,varargin{:});
@@ -1305,10 +1302,10 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        MzFFTfile = matfile(fullfile(pwd,'MzFFT.mat'));
        arrSize = size(MzFFTfile,'Yz');
    
-       freqScale = obj.getWaveScale(obj.dt,arrSize(1))/1e9;
+       freqScale = getWaveScale(obj.dt,arrSize(1))/1e9;
        [~,freqInd] = min(abs(freqScale - params.freq));
        
-       kxScale = obj.getWaveScale(0.004,arrSize(2)); 
+       kxScale = getWaveScale(0.004,arrSize(2)); 
        [~,kxInd] = min(abs(kxScale - params.kx));
        
        Yt = squeeze(MzFFTfile.Yz(freqInd,:,params.yRange(1):params.yRange(2),:));
@@ -1340,11 +1337,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
    end 
    
-   % return array of frequencies of FFT transformation 
-   function res = getWaveScale(obj,delta,Frames)
-       res = linspace(-0.5/delta,0.5/delta,Frames);
-   end    
-   
+     
    function setDbColorbar(obj)
        t = colorbar('peer',gca);
        set(get(t,'ylabel'),'String', 'FFT intensity, dB');
@@ -1353,6 +1346,10 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
  end
 end 
 
+% return array of frequencies of FFT transformation 
+function res = getWaveScale(delta,Frames)
+    res = linspace(-0.5/delta,0.5/delta,Frames);
+end  
 
   %% create red-blue color map 
  function newmap = b2r(cmin_input,cmax_input)
