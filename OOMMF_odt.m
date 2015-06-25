@@ -114,14 +114,15 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
      params = p.Results; 
      
      Y = fftshift(abs(fft(obj.Mz(1:end))));
-     freq = linspace(-0.5/obj.dt,0.5/obj.dt,size(Y,1))/1e9;
+     
      
      if strcmp(params.scale,'norm')
-       plot(freq,Y);
+       plot(obj.freqScale/1e9,Y);
      else
-       semilogy(freq,Y);  
+       semilogy(obj.freqScale/1e9,Y);  
      end    
-     xlabel('Freq, GHz'); xlim(params.freqLim);
+     xlabel('Freq, GHz'); 
+     xlim([params.freqLim(1) params.freqLim(2)]);
      ylabel('FFT intensity');
      title('FFT of M_z projection');
       
