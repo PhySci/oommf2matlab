@@ -734,7 +734,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            params.zRange = [1 mSize(4)];
        end
        
-       freqScale = linspace(-0.5/obj.dt,0.5/obj.dt,mSize(1))/1e9; 
+       freqScale = obj.getWaveScale(obj.dt,mSize(1))/1e9; 
        [~,freqScaleInd(1)] = min(abs(freqScale-params.freqLimit(1)));
        [~,freqScaleInd(2)] = min(abs(freqScale-params.freqLimit(2)));
        freqScale = freqScale(freqScaleInd(1):freqScaleInd(2));
@@ -759,7 +759,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
 
        
        dx = 0.004; % 0.5 mkm
-       waveVectorScale = 2*pi*linspace(-0.5/dx,0.5/dx,mSize(2));
+       waveVectorScale = 2*pi*obj.getWaveScale(dx,mSize(2));
        [~,waveVectorInd(1)] = min(abs(waveVectorScale-params.waveLimit(1)));
        [~,waveVectorInd(2)] = min(abs(waveVectorScale-params.waveLimit(2)));
        waveVectorScale = waveVectorScale(waveVectorInd(1):waveVectorInd(2));       
@@ -1291,7 +1291,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        p = inputParser;
        p.addRequired('freq',@isnumeric);
        p.addRequired('kx',@isnumeric);
-       p.addParamValue('yRange',[101 150],@isnumeric);
+       p.addParamValue('yRange',[81 120],@isnumeric);
        p.addParamValue('zRange',:,@isnumeric);
        p.addParamValue('saveAs','',@isstr);
        p.addParamValue('proj','z',@(x)any(strcmp(x,{'X','x','Y','y','Z','z'})));
@@ -1338,12 +1338,13 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        Amp = abs(YtxSlice);
        Phase = angle(YtxSlice);
+       figure();
        subplot(211);
            imagesc(Amp.',[0 max(Amp(:))]);
            axis xy
            xlabel('Y'); ylabel('Z');
            obj.setDbColorbar();
-           colormap(gray);
+           colormap(flipud(gray));
            freezeColors;
            cbfreeze;
            title(['\nu = ',num2str(params.freq),' GHz, k_x = ',num2str(params.kx),...
@@ -1356,6 +1357,9 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            colorbar('EastOutside');
            cblabel('rad.');
            colormap(hsv);
+      
+       
+           
        
               % save img
        if (~strcmp(params.saveAs,''))
@@ -1369,14 +1373,19 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    
    % return array of frequencies of FFT transformation 
    function res = getWaveScale(obj,delta,Frames)
-       res = linspace(-0.5/delta,0.5/delta,Frames);
+       if (mod(Frames,2) == 1)
+           res = linspace(-0.5/delta,0.5/delta,Frames);
+       else
+           dx = 1/(delta*Frames);
+           res = linspace(-0.5/delta-dx,0.5/delta,Frames);
+       end    
    end    
    
    function setDbColorbar(obj)
        t = colorbar('peer',gca);
        set(get(t,'ylabel'),'String', 'FFT intensity, dB');
    end    
-   
+      
  end
 end 
 
@@ -1522,8 +1531,4 @@ elseif cmax_input <= 0
        end_point = round((cmax_input-cmin_input)/2/abs(cmin_input)*color_num);
        newmap = squeeze(newmap_all(1:end_point,:));
 end
- end
- 
- %% create greyscale color map
- function newmap = grayMap(cmin_input,cmax_input)
  end
