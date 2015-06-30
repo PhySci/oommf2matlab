@@ -718,6 +718,10 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        params.proj = lower(params.proj);
        
+       % read file of parameters
+       tmp = load(fullfile(obj.folder,'params.mat'));
+       simParams = tmp.obj;
+       
        MFile = matfile(fullfile(obj.folder,strcat('M',params.proj,'FFT.mat')));
        mSize = size(MFile,strcat('Y',params.proj));
        
@@ -757,9 +761,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            return
        end    
 
-       
-       dx = 0.004; % 0.5 mkm
-       waveVectorScale = 2*pi*obj.getWaveScale(dx,mSize(2));
+       waveVectorScale = 2*pi*obj.getWaveScale(simParams.xstepsize/1e-6,mSize(2));
        [~,waveVectorInd(1)] = min(abs(waveVectorScale-params.waveLimit(1)));
        [~,waveVectorInd(2)] = min(abs(waveVectorScale-params.waveLimit(2)));
        waveVectorScale = waveVectorScale(waveVectorInd(1):waveVectorInd(2));       
