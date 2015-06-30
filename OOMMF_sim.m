@@ -844,7 +844,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        yScale=linspace(simParams.ymin,simParams.ymax,simParams.ynodes)/1e-6;
        yScale = yScale(params.yRange(1):params.yRange(2));  
        
-       freqScale = linspace(-0.5/obj.dt,0.5/obj.dt,MzFFTSize(1))/1e9;
+       freqScale = getWaveScale(obj.dt,MzFFTSize(1))/1e9;
        shiftFreqScale = ifftshift(freqScale);
        [~,freqInd] = min(abs(shiftFreqScale-params.freq));
        
@@ -930,7 +930,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        FFTSize = size(FFTFile,'Yy');
        % create freq Scale
-       freqScale = linspace(-0.5/obj.dt,0.5/obj.dt,FFTSize(1))/1e9;
+       freqScale = obj.getWaveScale(obj.dt,FFTSize(1))/1e9;
        shiftFreqScale = ifftshift(freqScale);
        [~,freqInd] = min(abs(shiftFreqScale-params.freq));
        
@@ -1017,7 +1017,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        Y = mean(mean(mean(FFT,4),3),2);
        Amp = abs(fftshift(Y));
        
-       freqScale = linspace(-0.5/obj.dt,0.5/obj.dt,size(Amp,1))/1e9;
+       freqScale = obj.getWaveScale(obj.dt,size(Amp,1))/1e9;
        if (strcmp(params.scale,'norm'))
            plot(freqScale,Amp);
        else
@@ -1248,7 +1248,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        YzFile = matfile('MzFFT.mat');
        arrSize = size(YzFile,'Yz');
        
-       freqScale = linspace(-0.5/obj.dt,0.5/obj.dt,arrSize(1))/1e9; 
+       freqScale = obj.getWaveScale(obj.dt,arrSize(1))/1e9; 
        [~,freqScaleInd(1)] = min(abs(freqScale-params.freqRange(1)));
        [~,freqScaleInd(2)] = min(abs(freqScale-params.freqRange(2)));
        freqScale = freqScale(freqScaleInd(1):freqScaleInd(2));
