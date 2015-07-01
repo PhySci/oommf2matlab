@@ -738,7 +738,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            params.zRange = [1 mSize(4)];
        end
        
-       freqScale = obj.getWaveScale(obj.dt,mSize(1))/1e9; 
+       freqScale = obj.getWaveScale(simParams.dt,mSize(1))/1e9; 
        [~,freqScaleInd(1)] = min(abs(freqScale-params.freqLimit(1)));
        [~,freqScaleInd(2)] = min(abs(freqScale-params.freqLimit(2)));
        freqScale = freqScale(freqScaleInd(1):freqScaleInd(2));
@@ -844,7 +844,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        yScale=linspace(simParams.ymin,simParams.ymax,simParams.ynodes)/1e-6;
        yScale = yScale(params.yRange(1):params.yRange(2));  
        
-       freqScale = getWaveScale(obj.dt,MzFFTSize(1))/1e9;
+       freqScale = getWaveScale(simParams.dt,MzFFTSize(1))/1e9;
        shiftFreqScale = ifftshift(freqScale);
        [~,freqInd] = min(abs(shiftFreqScale-params.freq));
        
@@ -1302,6 +1302,10 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        params = p.Results;
        params.proj = lower(params.proj);
        
+       % load file of parameters
+       tmp = load(fullfile(obj.folder,'params.mat'));
+       simParams = tmp.obj;
+       
        if (strcmp(params.proj,'z'))
            FFTfile = matfile(fullfile(pwd,'MzFFT.mat'));
            arrSize = size(FFTfile,'Yz');
@@ -1316,10 +1320,10 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            return
        end
        
-       freqScale = obj.getWaveScale(obj.dt,arrSize(1))/1e9;
+       freqScale = obj.getWaveScale(simParams.dt,arrSize(1))/1e9;
        [~,freqInd] = min(abs(freqScale - params.freq));
        
-       kxScale = obj.getWaveScale(0.004,arrSize(2)); 
+       kxScale = 2*pi*obj.getWaveScale(simParams.xstepsize*1e6,arrSize(2)); 
        [~,kxInd] = min(abs(kxScale - params.kx));
        
        if (strcmp(params.proj,'z'))
