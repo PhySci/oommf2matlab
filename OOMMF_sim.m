@@ -712,6 +712,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        p.addParamValue('waveLimit',[0 700],@isnumeric);
        p.addParamValue('proj','z',@(x)any(strcmp(x,{'X','x','Y','y','Z','z'})));
        p.addParamValue('saveAs','',@isstr);
+       p.addParamValue('saveMatAs','',@isstr);
        
        p.parse(varargin{:});
        params = p.Results;
@@ -801,6 +802,13 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            savefig(strcat(params.saveAs,'.fig'));
            print(gcf,'-dpng',strcat(params.saveAs,'.png'));
        end
+       
+       % save data to mat file
+       if (~strcmp(params.saveMatAs,''))
+           fName = strcat(params.saveMatAs,'.mat');
+           save(fName,'waveNew','freqNew','dBNew'); 
+       end
+       
        
    end 
    
