@@ -38,16 +38,18 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    
    function [Mx,My,Mz] = loadFile(obj,varargin)
        %% open file and check errors
-     
+     availableExts ={'omf', 'ohf', 'stc'};
+       
      p = inputParser;
      p.addParamValue('showMemory',false,@islogical);
+     p.addParamValue('fileExt','omf',@(x) any(stccmp(x,availableExts)));
      p.parse(varargin{:});
      params = p.Results;
      
      if (~strcmp(obj.fName,''))
-       fName = strcat(obj.fName,'.omf');
+       fName = strcat(obj.fName,'.',params.fileExt);
      else
-       [fName,fPath,~] = uigetfile({'*.omf'; '*.stc'});
+       [fName,fPath,~] = uigetfile({'*.omf'; '*.stc';'*.ohf'});
        fName = fullfile(fPath,fName);  
      end    
      
@@ -516,6 +518,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      p.addParamValue('makeFFT',false,@islogical);
      p.addParamValue('fileBase','',@isstr);
      p.addParamValue('savePath','',@isstr);
+     p.addParamValue('value','M',@(x) any(strcmp(x,{'M','H'})));
      
      p.parse(path,varargin{:});
      params = p.Results;
@@ -526,13 +529,21 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
          savePath = params.savePath; 
      end
      
+     % select extension for magnetization (*.omf) or field (*.ohf) files
+     if (strcmp(params.value,'M'))
+         fileExt = 'omf'; 
+     elseif (strcmp(params.value,'H'))
+         fileExt = 'ohf';
+     else
+         disp('Unknown physical value');
+         return
+     end    
                 
-     fList = obj.getFilesList(path,params.fileBase,'omf');     
+     fList = obj.getFilesList(path,params.fileBase,fileExt);     
      file = fList(1);
      [~, fName, ~] = fileparts(file.name);
-     pt = strcat(path,'\',fName);
-     obj.fName = pt;
-     obj.loadFile('showMemory',params.showMemory);
+     obj.fName = strcat(path,'\',fName);
+     obj.loadFile('showMemory',params.showMemory,'');
      save(strcat(savePath,'\params.mat'), 'obj');
           
      % evaluate required memory and compare with available space
@@ -547,14 +558,10 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
          size(fList,1))
           
      % create files and variables   
-     MxFile = matfile(fullfile(savePath,'Mx.mat'),'Writable',true);
-     MyFile = matfile(fullfile(savePath,'My.mat'),'Writable',true);
-     MzFile = matfile(fullfile(savePath,'Mz.mat'),'Writable',true);
-     
-     %MxFile.Mx = zeros(size(fList,1),obj.xnodes,obj.ynodes,obj.znodes);  
-     %MyFile.My = zeros(size(fList,1),obj.xnodes,obj.ynodes,obj.znodes);
-     %MzFile.Mz = zeros(size(fList,1),obj.xnodes,obj.ynodes,obj.znodes);
-     
+     XFile = matfile(fullfile(savePath,strcat(params.value,'x.mat')),'Writable',true);
+     YFile = matfile(fullfile(savePath,strcat(params.value,'y.mat')),'Writable',true);
+     ZFile = matfile(fullfile(savePath,strcat(params.value,'z.mat')),'Writable',true);
+          
      % create heap array 
      MxHeap = zeros(heapSize,obj.xnodes,obj.ynodes,obj.znodes);
      MyHeap = zeros(heapSize,obj.xnodes,obj.ynodes,obj.znodes);
@@ -566,24 +573,23 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
          disp (i)
          file = fList(i);
          [~, fName, ~] = fileparts(file.name);
-         pt = strcat(path,'\',fName);
-         obj.fName = pt;
+         obj.fName = strcat(path,'\',fName);
          [MxHeap(indHeap,:,:,:), MyHeap(indHeap,:,:,:), MzHeap(indHeap,:,:,:)] = ...
              obj.loadMagnetisation;
                
          % write heaps to files
          if (indHeap >= heapSize || i == fileAmount)
              disp('Write to file');
-             MxFile.Mx((i-indHeap+1):i,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = MxHeap(1:indHeap,1:end,1:end,1:end);
-             MyFile.My((i-indHeap+1):i,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = MyHeap(1:indHeap,1:end,1:end,1:end); 
-             MzFile.Mz((i-indHeap+1):i,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = MzHeap(1:indHeap,1:end,1:end,1:end);
+             XFile.Mx((i-indHeap+1):i,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = MxHeap(1:indHeap,1:end,1:end,1:end);
+             YFile.My((i-indHeap+1):i,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = MyHeap(1:indHeap,1:end,1:end,1:end); 
+             ZFile.Mz((i-indHeap+1):i,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = MzHeap(1:indHeap,1:end,1:end,1:end);
              indHeap = 1;
          else
              indHeap = indHeap +1;
          end    
          
          if (params.deleteFiles)
-             delete(strcat(pt,'.omf'));
+             delete(strcat(obj.fName,'.',fileExt));
          end                       
      end
    end
