@@ -28,8 +28,13 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    iteration
    memLogFile = 'log.txt';
    dt = 1e-11; % time step of simulation
-   staticFile = 'static.stc';
  end
+ 
+ properties (Access = protected)
+     availableProjs = {'x','X','y','Y','z','Z'}; % list of available spatial projections
+     staticFile = 'static.stc';
+     paramsFile = 'params.mat';
+ end     
  
  methods
    function obj = OOMMF_sim()
@@ -138,11 +143,15 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      p.parse(varargin{:});
      params = p.Results;
      
-     if (~strcmp(obj.fName,''))
-       fName = strcat(obj.fName,'.',params.fileExt);
+     [pathstr,name,ext] = fileparts(obj.fName);
+     
+     if (strcmp(name,'') && strcmp(ext,''))
+         [fName,fPath,~] = uigetfile({'*.omf'; '*.stc';'*.ohf'});
+         fName = fullfile(fPath,fName);  
+     elseif (strcmp(ext,''))
+         fName = strcat(obj.fName,'.',params.fileExt);
      else
-       [fName,fPath,~] = uigetfile({'*.omf'; '*.stc';'*.ohf'});
-       fName = fullfile(fPath,fName);  
+         fName = obj.fName;
      end       
      
      fid = fopen(fName);
@@ -656,7 +665,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        p.addParamValue('scale',''); % <-------- TODO
        p.addParamValue('freqLimit',[0 50], @isnumeric);
        p.addParamValue('waveLimit',[0 700],@isnumeric);
-       p.addParamValue('proj','z',@(x)any(strcmp(x,{'X','x','Y','y','Z','z'})));
+       p.addParamValue('proj','z',@(x)any(strcmp(x,obj.availableProjs)));
        p.addParamValue('saveAs','',@isstr);
        p.addParamValue('saveMatAs','',@isstr);
        
@@ -666,8 +675,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        params.proj = lower(params.proj);
        
        % read file of parameters
-       tmp = load(fullfile(obj.folder,'params.mat'));
-       simParams = tmp.obj;
+       simParams = obj.getSimParams;
        
        MFile = matfile(fullfile(obj.folder,strcat('M',params.proj,'FFT.mat')));
        mSize = size(MFile,strcat('Y',params.proj));
@@ -773,8 +781,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        params = p.Results;
               
        % load parameters
-       tmp = load(fullfile(obj.folder,'params.mat'));
-       simParams = tmp.obj;
+       simParams = obj.getSimParams;
        
        % assign file of FFT of Mz
        MzFFTFile = matfile(fullfile(obj.folder,'MzFFT.mat'));
@@ -871,8 +878,8 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        params = p.Results;
        
        % load parameters
-       tmp = load(fullfile(obj.folder,'params.mat'));
-       simParams = tmp.obj;
+       simParams = obj.getSimParams;
+
        xScale=linspace(simParams.xmin,simParams.xmax,simParams.xnodes)/1e-6;
        yScale=linspace(simParams.ymin,simParams.ymax,simParams.ynodes)/1e-6;
        
@@ -1014,8 +1021,8 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        % load parameters
        % calculate axis
-       tmp = load(fullfile(obj.folder,'params.mat'));
-       simParams = tmp.obj;
+       simParams = obj.getSimParams;
+              
        xScale = linspace(simParams.xmin,simParams.xmax,simParams.xnodes)/1e-6;
        yScale = linspace(simParams.ymin,simParams.ymax,simParams.ynodes)/1e-6;
        yScale = yScale(params.yRange);
@@ -1066,9 +1073,9 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        end    
        
        % load parameters
+       simParams = obj.getSimParams;
+
        % calculate axis
-       tmp = load(fullfile(obj.folder,'params.mat'));
-       simParams = tmp.obj;
        xScale = linspace(simParams.xmin,simParams.xmax,simParams.xnodes)/1e-6;
        yScale = linspace(simParams.ymin,simParams.ymax,simParams.ynodes)/1e-6;
        yScale = yScale(params.yRange);
@@ -1118,12 +1125,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        % substract backgroung
        if (params.background)
-          if (exist(fullfile(params.folder,obj.staticFile),'file') ~= 2)
-              disp('No background file has been found');
-              return
-          end
-          obj.fName = 'static.stc';
-          [Mx,My,Mz] = obj.loadMagnetisation;
+          [Mx,My,Mz] = obj.getStatic(params.folder);
        end    
 
        disp('Mx');
@@ -1195,10 +1197,8 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        p.parse(varargin{:});
        params = p.Results;
        
-       tmp = load(fullfile(pwd,'params.mat'));
-       simParams = tmp.obj;
-       
-       
+       simParams = obj.getSimParams;
+              
        YzFile = matfile('MzFFT.mat');
        arrSize = size(YzFile,'Yz');
        
@@ -1223,7 +1223,8 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
    end    
    
-   % plot dependence of intencity on wavelength for given frequency
+   %% plot dependence of intencity on wavelength for given frequency
+   % incomplete method
    function plotFreqSlice(obj,freq,varargin)
        p = imputParser;
        p.addRequired('freq',@isnumeric);
@@ -1239,9 +1240,8 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    end    
    
    
-   % plot amplitude and phase of modes in (y,z) coordinates
+   %% plot amplitude and phase of modes in (y,z) coordinates
    %for given frequency and Kx wave number
-   
    function plotFreqXWaveSlice(obj,freq,kx,varargin)
        
        p = inputParser;
@@ -1250,15 +1250,14 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        p.addParamValue('yRange',[81 120],@isnumeric);
        p.addParamValue('zRange',:,@isnumeric);
        p.addParamValue('saveAs','',@isstr);
-       p.addParamValue('proj','z',@(x)any(strcmp(x,{'X','x','Y','y','Z','z'})));
+       p.addParamValue('proj','z',@(x)any(strcmp(x,obj.availableProjs)));
        
        p.parse(freq,kx,varargin{:});
        params = p.Results;
        params.proj = lower(params.proj);
        
        % load file of parameters
-       tmp = load(fullfile(obj.folder,'params.mat'));
-       simParams = tmp.obj;
+       simParams = obj.getSimParams;
        
        if (strcmp(params.proj,'z'))
            FFTfile = matfile(fullfile(pwd,'MzFFT.mat'));
@@ -1331,10 +1330,44 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
    end 
    
+   %% calculate out-of-plane and in-plane components of dynamical magnetization
+   % params :
+   %     normalAxis - direction of out-of-plane components
+   %
+   function calcDynamicComponents(obj,varargin)
+       
+       p = inputParser;
+       p.addParamValue('normalAxis','z',@(a) any(strcmp(x,obj.availableProjs)));
+       p.parse(varargin{:});
+       params = p.Results;
+       
+       params.normalAxis = lower(params.normalAxis);
+       
+       % load file of parameters
+       obj = obj.getSimParams;
+       
+       % load file of static configuration
+       [MxStatic,MyStatic,MzStatic] = obj.getStatic(obj.folder);
+       
+       % calculate normal plane for every points
+
+       % go throught all timeFrames
+       % calculate dynamic components
+       % save dynamic components
+       % select time range, not spatial
+   end    
+   % END OF PUBLIC METHODS
+ end
+ 
+ %% PROTECTED METHODS  
+ methods (Access = protected)
+   
+   
    %% return 1D array of frequencies or wavelengths FFT transformation
    %  from "-0.5/delta" to "-0.5/delta" with "Frames" steps 
    % "delta" is time or spatial step, determines lowest and highest values
    % "Frames" is amount of counts
+   % should be protected
    function res = getWaveScale(obj,delta,Frames)
        if (mod(Frames,2) == 1)
            res = linspace(-0.5/delta,0.5/delta,Frames);
@@ -1344,11 +1377,32 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        end    
    end    
    
+   %% set colorbar for imagesc
+   % should be protected
    function setDbColorbar(obj)
        t = colorbar('peer',gca);
        set(get(t,'ylabel'),'String', 'FFT intensity, dB');
+   end
+   
+   %% read file of parameters
+   % return parameters of simulation
+   % should be protected
+   function res = getSimParams(obj)
+       tmp = load(fullfile(obj.folder,obj.paramsFile));
+       obj = tmp.obj;
+       res = tmp.obj;
+   end
+   
+   %% read file of static magnetization
+   % return three arrays [Mx,My,Mz]
+   function [Mx,My,Mz] = getStatic(obj,folder)
+       if (exist(fullfile(folder,obj.staticFile),'file') ~= 2)
+           disp('No background file has been found');
+           return
+       end
+       obj.fName = obj.staticFile;
+       [Mx,My,Mz] = obj.loadMagnetisation('fileExt','stc');
    end    
-      
  end
 end 
 
