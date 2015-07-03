@@ -36,13 +36,13 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
          disp('OOMMF_sim object was created');
    end
    
-   function [Mx,My,Mz] = loadFile(obj,varargin)
+   function [Mx,My,Mz] = loadParams(obj,varargin)
        %% open file and check errors
      availableExts ={'omf', 'ohf', 'stc'};
        
      p = inputParser;
      p.addParamValue('showMemory',false,@islogical);
-     p.addParamValue('fileExt','omf',@(x) any(stccmp(x,availableExts)));
+     p.addParamValue('fileExt','omf',@(x) any(strcmp(x,availableExts)));
      p.parse(varargin{:});
      params = p.Results;
      
@@ -122,60 +122,28 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
     else
       disp('Wrong format');
       return;
-    end   
-     
-    data = fread(fid, obj.xnodes*obj.ynodes*obj.znodes*obj.dim,...
-         format, 0, 'ieee-le');
-    
-    if (isempty(strfind(fgetl(fid),'# End: Data')) || isempty(strfind(fgetl(fid),'# End: Segment')))
-      disp('End of file is incorrect. Something wrong');
-      fclose(fid);
-      return;
-    else    
-      fclose(fid);
     end
     
-    % Mag(x y z dim)
-    maxInd = 3*obj.znodes*obj.ynodes*obj.xnodes;
+    fclose(fid);
     
-    Mx = data(1:3:maxInd);
-    My = data(2:3:maxInd);
-    Mz = data(3:3:maxInd);
-    
-    Mx = reshape(Mx, [obj.xnodes obj.ynodes obj.znodes]);
-    My = reshape(My, [obj.xnodes obj.ynodes obj.znodes]);
-    Mz = reshape(Mz, [obj.xnodes obj.ynodes obj.znodes]);
-    
-    if (params.showMemory)
-      disp('Memory used:');
-      memory
-    end
    end
    
    function [Mx,My,Mz] = loadMagnetisation(obj,varargin)
        %% open file and check errors
+     availableExts ={'omf', 'ohf', 'stc'};
      
      p = inputParser;
      p.addParamValue('showMemory',false,@islogical);
+     p.addParamValue('fileExt','omf',@(x) any(strcmp(x,availableExts)));
      p.parse(varargin{:});
      params = p.Results;
      
-     if (strcmp(obj.fName,''))
-         % no name of file
-       [fName,fPath,~] = uigetfile({'*.omf'; '*.stc'});
-       fName = fullfile(fPath,fName);
+     if (~strcmp(obj.fName,''))
+       fName = strcat(obj.fName,'.',params.fileExt);
      else
-         % there is file name
-       [~,~,ext] =  fileparts(obj.fName);
-       if isempty(ext)
-           % no extension of file
-           fName = strcat(obj.fName,'.omf');
-       else
-           % there is extension
-           fName = obj.fName;
-       end    
-                
-     end    
+       [fName,fPath,~] = uigetfile({'*.omf'; '*.stc';'*.ohf'});
+       fName = fullfile(fPath,fName);  
+     end       
      
      fid = fopen(fName);
      if ((fid == -1))
@@ -194,36 +162,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      propertiesList = fieldnames(obj);
      line = fgetl(fid); 
      while (isempty(strfind(line,'Begin: Data Binary')))   
-       line = fgetl(fid);
-       [~, ~, ~, ~, tokenStr, ~, splitStr] = regexp(line,expr);  
-       % read parameters
-       if (size(tokenStr,1)>0)
-       if (size(tokenStr{1,1},2)>1)
-          % seek properties
-         toks = tokenStr{1,1};
-         
-         if (strcmp(toks{1,1},'Desc:  Iteration'))
-           obj.iteration = str2num(toks{1,2}); 
-         elseif (strcmp(toks{1,1},'Desc:  Total simulation time'))
-           obj.totalSimTime = str2num(toks{1,2}); 
-         else
-           for i=1:size(propertiesList,1)
-              if(strcmp(propertiesList{i,1},toks{1,1}))
-                prop = toks{1,1};
-                val = toks{1,2};
-              
-                %  Is it numerical value?
-                [num,status] = str2num(val);
-                if (status) % yes, it's numerical
-                  set(obj,prop,num) 
-                else % no, it's string
-                    set(obj,prop,val)
-                end    
-              end    
-           end
-         end
-       end          
-      end    
+       line = fgetl(fid);  
      end
  
      % determine file format
@@ -293,6 +232,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    
    % plot vector plot of magnetisation in XY plane
    % z is number of plane
+   % should be rewritted 
    function plotMSurfXY(obj,slice,proj,varargin)
      p = inputParser;
      p.addRequired('slice',@isnumeric);
@@ -509,7 +449,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    % path - path to the folder
    % saveObj - save an objects?
    % savePath - path to save objects 
-   function scanMFolder(obj,path,varargin) 
+   function scanFolder(obj,path,varargin) 
      % parse input parameters
      p = inputParser;
      p.addRequired('path',@ischar);
@@ -543,7 +483,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      file = fList(1);
      [~, fName, ~] = fileparts(file.name);
      obj.fName = strcat(path,'\',fName);
-     obj.loadFile('showMemory',params.showMemory,'');
+     obj.loadParams('showMemory',params.showMemory,'fileExt',fileExt);
      save(strcat(savePath,'\params.mat'), 'obj');
           
      % evaluate required memory and compare with available space
@@ -563,9 +503,9 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      ZFile = matfile(fullfile(savePath,strcat(params.value,'z.mat')),'Writable',true);
           
      % create heap array 
-     MxHeap = zeros(heapSize,obj.xnodes,obj.ynodes,obj.znodes);
-     MyHeap = zeros(heapSize,obj.xnodes,obj.ynodes,obj.znodes);
-     MzHeap = zeros(heapSize,obj.xnodes,obj.ynodes,obj.znodes);
+     XHeap = zeros(heapSize,obj.xnodes,obj.ynodes,obj.znodes);
+     YHeap = zeros(heapSize,obj.xnodes,obj.ynodes,obj.znodes);
+     ZHeap = zeros(heapSize,obj.xnodes,obj.ynodes,obj.znodes);
      
      indHeap = 1;
      fileAmount = size(fList,1); 
@@ -574,15 +514,15 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
          file = fList(i);
          [~, fName, ~] = fileparts(file.name);
          obj.fName = strcat(path,'\',fName);
-         [MxHeap(indHeap,:,:,:), MyHeap(indHeap,:,:,:), MzHeap(indHeap,:,:,:)] = ...
-             obj.loadMagnetisation;
+         [XHeap(indHeap,:,:,:), YHeap(indHeap,:,:,:), ZHeap(indHeap,:,:,:)] = ...
+             obj.loadMagnetisation('fileExt',fileExt);
                
          % write heaps to files
          if (indHeap >= heapSize || i == fileAmount)
              disp('Write to file');
-             XFile.Mx((i-indHeap+1):i,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = MxHeap(1:indHeap,1:end,1:end,1:end);
-             YFile.My((i-indHeap+1):i,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = MyHeap(1:indHeap,1:end,1:end,1:end); 
-             ZFile.Mz((i-indHeap+1):i,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = MzHeap(1:indHeap,1:end,1:end,1:end);
+             XFile.Mx((i-indHeap+1):i,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = XHeap(1:indHeap,1:end,1:end,1:end);
+             YFile.My((i-indHeap+1):i,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = YHeap(1:indHeap,1:end,1:end,1:end); 
+             ZFile.Mz((i-indHeap+1):i,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = ZHeap(1:indHeap,1:end,1:end,1:end);
              indHeap = 1;
          else
              indHeap = indHeap +1;
@@ -1391,7 +1331,10 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
    end 
    
-   % return array of frequencies of FFT transformation 
+   %% return 1D array of frequencies or wavelengths FFT transformation
+   %  from "-0.5/delta" to "-0.5/delta" with "Frames" steps 
+   % "delta" is time or spatial step, determines lowest and highest values
+   % "Frames" is amount of counts
    function res = getWaveScale(obj,delta,Frames)
        if (mod(Frames,2) == 1)
            res = linspace(-0.5/delta,0.5/delta,Frames);
