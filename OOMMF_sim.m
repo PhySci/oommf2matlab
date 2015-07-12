@@ -639,7 +639,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        p.addParamValue('proj','z',@(x)any(strcmp(x,obj.availableProjs)));
        p.addParamValue('saveAs','',@isstr);
        p.addParamValue('saveMatAs','',@isstr);
-       p.addParamValue('interpolate',false,@islogic);
+       p.addParamValue('interpolate',false,@islogical);
        
        p.parse(varargin{:});
        params = p.Results;
@@ -713,18 +713,17 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            [waveGridNew,freqGridNew]=ndgrid(waveNew,freqNew);
 
            F = griddedInterpolant(waveGrid,freqGrid,dB.','spline');
-           dBNew = F(waveGridNew,freqGridNew);
+           dB = F(waveGridNew,freqGridNew).';
            
            waveVectorScale = waveNew;
-           freqScale = freqnew;
-           dB = dBNew
+           freqScale = freqNew;
        end
        
        % plot image
-       imagesc(waveVectorScale,freqScale,dB.');
+       imagesc(waveVectorScale,freqScale,dB);
        colormap(jet); axis xy
        xlabel('Wave number k_x, \mum^-^1');   ylabel('Frequency, GHz');
-       xlim([min(waveNew) max(waveNew)]);
+       xlim([min(waveVectorScale) max(waveVectorScale)]);
        t = colorbar('peer',gca);
        set(get(t,'ylabel'),'String', 'FFT intensity, dB');
        
