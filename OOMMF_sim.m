@@ -722,13 +722,9 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        % plot image
        imagesc(waveVectorScale,freqScale,dB);
-       
-       F = griddedInterpolant(waveGrid,freqGrid,dB.','spline');
-       dBNew = F(waveGridNew,freqGridNew);
             
-       imagesc(waveNew,freqNew,dBNew.');
-       colormap(jet); axis xy
-       xlabel('Wave number k_x, \mum^-^1');   ylabel('Frequency, GHz');
+       colormap(jet); axis xy;
+       xlabel('Wave vector k_x, rad\mum^-^1');   ylabel('Frequency, GHz');
        xlim([min(waveVectorScale) max(waveVectorScale)]);
        t = colorbar('peer',gca);
        set(get(t,'ylabel'),'String', 'FFT intensity, dB');
