@@ -628,7 +628,155 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    end 
    
    % plot dispersion curve along X axis
-   function plotDispersionX(obj,varargin)
+   % params:
+   %  - xRange is range of selected cells along X axis
+   %  - yRange is range of selected cells along Y axis
+   %  - zRange is range of selected cells along Z axis
+   %  - scale is determine mormal or log scale of plotted map
+   %  - freqLimit is range of evaluated frequencies
+   %  - waveLimit is range of evaluated wavevectors
+   %  - proj is projection of magnetization which will be used
+   %  - saveAs is name of produced *.fig and *.png files
+   %  - saveMatAs is name of *.mat file for saving of data
+   %  - interpolate is logical value. True for interpolation of the dispersion curve
+   %  - direction is spatial direction along which dispersion will be
+   %  calculated
+   function plotDispersion(obj,varargin)
+       p = inputParser;
+       p.addParamValue('xRange',0,@isnumeric);
+       p.addParamValue('yRange',0,@isnumeric);
+       p.addParamValue('zRange',0,@isnumeric);
+       p.addParamValue('scale',''); % <-------- TODO
+       p.addParamValue('freqLimit',[0 50], @isnumeric);
+       p.addParamValue('waveLimit',[0 700],@isnumeric);
+       p.addParamValue('proj','z',@(x)any(strcmp(x,obj.availableProjs)));
+       p.addParamValue('saveAs','',@isstr);
+       p.addParamValue('saveMatAs','',@isstr);
+       p.addParamValue('interpolate',false,@islogical);
+       p.addParamValue('direction','X',@(x)any(strcmp(x,obj.availableProjs)));
+       
+       % process incomming parameters
+       p.parse(varargin{:});
+       params = p.Results;
+       params.proj = lower(params.proj);
+       params.direction = lower(params.direction);
+       
+       % read file of simulation parameters
+       simParams = obj.getSimParams;
+       
+       MFile = matfile(fullfile(obj.folder,strcat('M',params.proj,'FFT.mat')));
+       mSize = size(MFile,strcat('Y',params.proj));
+       
+       % process input range parameters
+       if (params.xRange == 0)
+           params.xRange = [1 mSize(2)];
+       end    
+       
+       if (params.yRange == 0)
+           params.yRange = [1 mSize(3)];
+       end    
+       
+       if (params.zRange == 0)
+           params.zRange = [1 mSize(4)];
+       end
+       
+       freqScale = obj.getWaveScale(simParams.dt,mSize(1))/1e9; 
+       [~,freqScaleInd(1)] = min(abs(freqScale-params.freqLimit(1)));
+       [~,freqScaleInd(2)] = min(abs(freqScale-params.freqLimit(2)));
+       freqScale = freqScale(freqScaleInd(1):freqScaleInd(2));
+       
+       
+       if (strcmp(params.proj,'z'))
+           FFTres = MFile.Yz(freqScaleInd(1):freqScaleInd(2),params.xRange(1):params.xRange(2),...
+               params.yRange(1):params.yRange(2),...
+               params.zRange(1):params.zRange(2));
+       elseif (strcmp(params.proj,'x'))
+           FFTres = MFile.Yx(freqScaleInd(1):freqScaleInd(2),params.xRange(1):params.xRange(2),...
+               params.yRange(1):params.yRange(2),...
+               params.zRange(1):params.zRange(2));   
+       elseif (strcmp(params.proj,'y'))
+           FFTres = MFile.Yy(freqScaleInd(1):freqScaleInd(2),params.xRange(1):params.xRange(2),...
+               params.yRange(1):params.yRange(2),...
+               params.zRange(1):params.zRange(2));
+       else
+           disp('Unknown projection');
+           return
+       end    
+
+       waveVectorScale = 2*pi*obj.getWaveScale(simParams.xstepsize/1e-6,mSize(2));
+       [~,waveVectorInd(1)] = min(abs(waveVectorScale-params.waveLimit(1)));
+       [~,waveVectorInd(2)] = min(abs(waveVectorScale-params.waveLimit(2)));
+       waveVectorScale = waveVectorScale(waveVectorInd(1):waveVectorInd(2));       
+              
+       if (strcmp(params.direction,'x'))           
+           Y(:,:,:,:) = fft(FFTres,[],2);
+           clearvars FFTres;
+           Amp = mean(mean(abs(Y),4),3);
+           Amp = fftshift(abs(Amp),2);
+           clearvars Y;
+       elseif (strcmp(params.direction,'y'))
+           Y(:,:,:,:) = fft(FFTres,[],3);
+           clearvars FFTres;
+           Amp = mean(mean(abs(Y),4),2);
+           Amp = fftshift(abs(Amp),2);
+           clearvars Y;
+       elseif (strcmp(params.direction,'z'))
+           Y(:,:,:,:) = fft(FFTres,[],4);
+           clearvars FFTres;
+           Amp = mean(mean(abs(Y),2),3);
+           Amp = fftshift(abs(Amp),2);
+           clearvars Y;
+       end    
+
+           
+       Amp = Amp(:,waveVectorInd(1):waveVectorInd(2));
+       ref = min(Amp(find(Amp(:))));
+       dB = log10(Amp/ref);
+       % plot image
+       
+       % interpolate
+       if (params.interpolate)
+           waveNew = linspace(min(waveVectorScale),max(waveVectorScale),50*size(waveVectorScale,2));
+           freqNew = linspace(min(freqScale),max(freqScale),2*size(freqScale,2));
+
+           [waveGrid,freqGrid]=ndgrid(waveVectorScale,freqScale);
+           [waveGridNew,freqGridNew]=ndgrid(waveNew,freqNew);
+
+           F = griddedInterpolant(waveGrid,freqGrid,dB.','spline');
+           dB = F(waveGridNew,freqGridNew).';
+           
+           waveVectorScale = waveNew;
+           freqScale = freqNew;
+       end
+       
+       % plot image
+       imagesc(waveVectorScale,freqScale,dB);
+            
+       colormap(jet); axis xy;
+       xlabel('Wave vector k_x, rad\mum^-^1');   ylabel('Frequency, GHz');
+       xlim([min(waveVectorScale) max(waveVectorScale)]);
+       t = colorbar('peer',gca);
+       set(get(t,'ylabel'),'String', 'FFT intensity, dB');
+       
+       
+       
+       % save img
+       if (~strcmp(params.saveAs,''))
+           savefig(strcat(params.saveAs,'.fig'));
+           print(gcf,'-dpng',strcat(params.saveAs,'.png'));
+       end
+       
+       % save data to mat file
+       if (~strcmp(params.saveMatAs,''))
+           fName = strcat(params.saveMatAs,'.mat');
+           save(fName,'waveNew','freqNew','dBNew'); 
+       end
+       
+       
+   end 
+   
+   % plot dispersion curve along Y axis
+   function plotDispersionY(obj,varargin)
        p = inputParser;
        p.addParamValue('xRange',0,@isnumeric);
        p.addParamValue('yRange',0,@isnumeric);
