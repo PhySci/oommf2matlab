@@ -40,7 +40,8 @@ function processODS()
       ylabel('FFT intensity');
       set(gca, 'Position', [0.05 0.08 0.92 0.36]);     
  % copy data to clipboard
- num2clip([freq Y]);
+ num2clip([freq(find(freq>=0)) Y(find(freq>=0))]);
+ %num2clip([time AI7correct]);
  
  %save
  savefig(h2,strcat(fName,'.fig'));

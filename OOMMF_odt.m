@@ -148,6 +148,7 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
      p = inputParser;
      p.addParamValue('scale','norm',@(x) ismember(x,{'norm','log'}));
      p.addParamValue('saveImg',false,@islogical);
+     p.addParamValue('freqLim',[0 15],@isnumeric);
      p.parse(varargin{:});
      params = p.Results; 
      
@@ -164,6 +165,7 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
        ylabel('FFT intensity');
      
      title(strcat('FFT of M_x projection.'));
+     xlim([params.freqLim(1) params.freqLim(2)]);
      
      if (params.saveImg)
        [fName, errFlag] = generateFileName('.','odtXFFT','png');
@@ -176,6 +178,7 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
    function plotYFFT(obj,varargin)
      p = inputParser;
      p.addParamValue('scale','norm',@(x) ismember(x,{'norm','log'}));
+     p.addParamValue('freqLim',[0 15],@isnumeric);
      p.parse(varargin{:});
      params = p.Results; 
      
@@ -186,9 +189,11 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
        plot(freq,Y);
      else
        semilogy(freq,Y);  
-     end    
-      xlabel('Freq, GHz'); xlim([0,15]);
-      ylabel('FFT intensity');
+     end
+     
+     xlabel('Frequency (GHz)','FontSize',12,'FontName','Times'); xlim([0,15]);
+     ylabel('FFT intensity (arb. units)', 'FontSize',12,'FontName','Times');
+     xlim([params.freqLim(1) params.freqLim(2)]);
 
    end
    
