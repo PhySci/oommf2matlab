@@ -646,7 +646,6 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        p.addParamValue('xRange',0,@isnumeric);
        p.addParamValue('yRange',0,@isnumeric);
        p.addParamValue('zRange',0,@isnumeric);
-       p.addParamValue('scale',''); % <-------- TODO
        p.addParamValue('freqLimit',[0 50], @isnumeric);
        p.addParamValue('waveLimit',[0 700],@isnumeric);
        p.addParamValue('proj','z',@(x)any(strcmp(x,obj.availableProjs)));
@@ -654,6 +653,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        p.addParamValue('saveMatAs','',@isstr);
        p.addParamValue('interpolate',false,@islogical);
        p.addParamValue('direction','X',@(x)any(strcmp(x,obj.availableProjs)));
+       p.addParamValue('scale','log',@(x) any(strcmp(x,{'log','norm'})))
        
        % process incomming parameters
        p.parse(varargin{:});
@@ -663,6 +663,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        % read file of simulation parameters
        simParams = obj.getSimParams;
+       simParams.dt = 2e-11;
        
        MFile = matfile(fullfile(obj.folder,strcat('M',params.proj,'FFT.mat')));
        mSize = size(MFile,strcat('Y',params.proj));
@@ -730,127 +731,15 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
 
            
        Amp = Amp(:,waveVectorInd(1):waveVectorInd(2));
-       ref = min(Amp(find(Amp(:))));
-       dB = log10(Amp/ref);
-       % plot image
        
-       % interpolate
-       if (params.interpolate)
-           waveNew = linspace(min(waveVectorScale),max(waveVectorScale),50*size(waveVectorScale,2));
-           freqNew = linspace(min(freqScale),max(freqScale),2*size(freqScale,2));
-
-           [waveGrid,freqGrid]=ndgrid(waveVectorScale,freqScale);
-           [waveGridNew,freqGridNew]=ndgrid(waveNew,freqNew);
-
-           F = griddedInterpolant(waveGrid,freqGrid,dB.','spline');
-           dB = F(waveGridNew,freqGridNew).';
-           
-           waveVectorScale = waveNew;
-           freqScale = freqNew;
-       end
-       
-       % plot image
-       imagesc(waveVectorScale,freqScale,dB);
-            
-       colormap(jet); axis xy;
-       xlabel('Wave vector k_x, rad\mum^-^1');   ylabel('Frequency, GHz');
-       xlim([min(waveVectorScale) max(waveVectorScale)]);
-       t = colorbar('peer',gca);
-       set(get(t,'ylabel'),'String', 'FFT intensity, dB');
-       
-       
-       
-       % save img
-       if (~strcmp(params.saveAs,''))
-           savefig(strcat(params.saveAs,'.fig'));
-           print(gcf,'-dpng',strcat(params.saveAs,'.png'));
-       end
-       
-       % save data to mat file
-       if (~strcmp(params.saveMatAs,''))
-           fName = strcat(params.saveMatAs,'.mat');
-           save(fName,'waveNew','freqNew','dBNew'); 
-       end
-       
-       
-   end 
-   
-   % plot dispersion curve along Y axis
-   function plotDispersionY(obj,varargin)
-       p = inputParser;
-       p.addParamValue('xRange',0,@isnumeric);
-       p.addParamValue('yRange',0,@isnumeric);
-       p.addParamValue('zRange',0,@isnumeric);
-       p.addParamValue('scale',''); % <-------- TODO
-       p.addParamValue('freqLimit',[0 50], @isnumeric);
-       p.addParamValue('waveLimit',[0 700],@isnumeric);
-       p.addParamValue('proj','z',@(x)any(strcmp(x,obj.availableProjs)));
-       p.addParamValue('saveAs','',@isstr);
-       p.addParamValue('saveMatAs','',@isstr);
-       p.addParamValue('interpolate',false,@islogical);
-       
-       p.parse(varargin{:});
-       params = p.Results;
-       
-       params.proj = lower(params.proj);
-       
-       % read file of parameters
-       simParams = obj.getSimParams;
-       
-       MFile = matfile(fullfile(obj.folder,strcat('M',params.proj,'FFT.mat')));
-       mSize = size(MFile,strcat('Y',params.proj));
-       
-       % process input range parameters
-       if (params.xRange == 0)
-           params.xRange = [1 mSize(2)];
-       end    
-       
-       if (params.yRange == 0)
-           params.yRange = [1 mSize(3)];
-       end    
-       
-       if (params.zRange == 0)
-           params.zRange = [1 mSize(4)];
-       end
-       
-       freqScale = obj.getWaveScale(simParams.dt,mSize(1))/1e9; 
-       [~,freqScaleInd(1)] = min(abs(freqScale-params.freqLimit(1)));
-       [~,freqScaleInd(2)] = min(abs(freqScale-params.freqLimit(2)));
-       freqScale = freqScale(freqScaleInd(1):freqScaleInd(2));
-       
-       
-       if (strcmp(params.proj,'z'))
-           FFTres = MFile.Yz(freqScaleInd(1):freqScaleInd(2),params.xRange(1):params.xRange(2),...
-               params.yRange(1):params.yRange(2),...
-               params.zRange(1):params.zRange(2));
-       elseif (strcmp(params.proj,'x'))
-           FFTres = MFile.Yx(freqScaleInd(1):freqScaleInd(2),params.xRange(1):params.xRange(2),...
-               params.yRange(1):params.yRange(2),...
-               params.zRange(1):params.zRange(2));   
-       elseif (strcmp(params.proj,'y'))
-           FFTres = MFile.Yy(freqScaleInd(1):freqScaleInd(2),params.xRange(1):params.xRange(2),...
-               params.yRange(1):params.yRange(2),...
-               params.zRange(1):params.zRange(2));
+       if (strcmp(params.scale,'log'))
+           ref = min(Amp(find(Amp(:))));
+           res = log10(Amp/ref);
        else
-           disp('Unknown projection');
-           return
-       end    
-
-       waveVectorScale = 2*pi*obj.getWaveScale(simParams.xstepsize/1e-6,mSize(2));
-       [~,waveVectorInd(1)] = min(abs(waveVectorScale-params.waveLimit(1)));
-       [~,waveVectorInd(2)] = min(abs(waveVectorScale-params.waveLimit(2)));
-       waveVectorScale = waveVectorScale(waveVectorInd(1):waveVectorInd(2));       
-              
+           res = (Amp - min(Amp(:)));
+           res = Amp/max(Amp(:));
+       end
        
-       Y(:,:,:,:) = fft(FFTres,[],2);
-       clearvars FFTres;
-       Amp = mean(mean(abs(Y),4),3);
-       Amp = fftshift(abs(Amp),2);
-       clearvars Y;
-              
-       Amp = Amp(:,waveVectorInd(1):waveVectorInd(2));
-       ref = min(Amp(find(Amp(:))));
-       dB = log10(Amp/ref);
        % plot image
        
        % interpolate
@@ -861,22 +750,31 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            [waveGrid,freqGrid]=ndgrid(waveVectorScale,freqScale);
            [waveGridNew,freqGridNew]=ndgrid(waveNew,freqNew);
 
-           F = griddedInterpolant(waveGrid,freqGrid,dB.','spline');
-           dB = F(waveGridNew,freqGridNew).';
+           F = griddedInterpolant(waveGrid,freqGrid,res.','spline');
+           res = F(waveGridNew,freqGridNew).';
            
            waveVectorScale = waveNew;
            freqScale = freqNew;
        end
        
        % plot image
-       imagesc(waveVectorScale,freqScale,dB);
+       imagesc(waveVectorScale,freqScale,res);
             
        colormap(jet); axis xy;
-       xlabel('Wave vector k_x, rad\mum^-^1');   ylabel('Frequency, GHz');
+       xlabel('Wave vector k_x (rad/\mum)','FontSize',16,'FontName','Times');
+       ylabel('Frequency (GHz)','FontSize',16,'FontName','Times');
        xlim([min(waveVectorScale) max(waveVectorScale)]);
-       t = colorbar('peer',gca);
-       set(get(t,'ylabel'),'String', 'FFT intensity, dB');
        
+       
+       t = colorbar('peer',gca);
+       set(get(t,'ylabel'),'FontSize',16,'FontName','Times');
+       if (strcmp(params.scale,'log'))
+           set(get(t,'ylabel'),'String', 'FFT intensity (dB)');
+       else
+           set(get(t,'ylabel'),'String', 'Intensity (arb. units)');
+       end    
+       
+       set(gca,'FontSize',14,'FontName','Times');
        
        
        % save img
@@ -893,7 +791,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        
    end 
-   
+      
    % plot spatial map of FFT distribution for a given frequency
    function plotFFTSliceZ(obj,varargin)
        
@@ -1096,17 +994,41 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    function plotFFTIntensity(obj,varargin)
        
        p = inputParser;
+       
        p.addParamValue('label','',@isstr);
        p.addParamValue('scale','norm', @(x) any(strcmp(x, {'norm','log'})));
+       p.addParamValue('proj','z',@(x)any(strcmp(x,obj.availableProjs)));
+       p.addParamValue('xRange',0,@isnumeric);
+       p.addParamValue('yRange',0,@isnumeric);
+       p.addParamValue('zRange',0,@isnumeric);
+       
        p.parse(varargin{:});
        params = p.Results;
        
        FFTFile = matfile('MzFFT.mat'); 
-       FFT = FFTFile.Yz(:,:,20:61,1:11);
-       Y = mean(mean(mean(FFT,4),3),2);
-       Amp = abs(fftshift(Y));
        
-       freqScale = obj.getWaveScale(obj.dt,size(Amp,1))/1e9;
+       mSize = size(FFTFile,strcat('Y',params.proj));
+       % process input range parameters
+       if (params.xRange == 0)
+           params.xRange = [1 mSize(2)];
+       end    
+       
+       if (params.yRange == 0)
+           params.yRange = [1 mSize(3)];
+       end    
+       
+       if (params.zRange == 0)
+           params.zRange = [1 mSize(4)];
+       end
+       
+       
+       FFT = FFTFile.Yz(:,params.xRange(1):params.xRange(2),...
+           params.yRange(1):params.yRange(2),...
+           params.zRange(1):params.zRange(2));
+       Y = mean(mean(mean(FFT,4),3),2);
+       Amp = abs(Y);
+       
+       freqScale = obj.getWaveScale(2e-11,size(Amp,1))/1e9;
        if (strcmp(params.scale,'norm'))
            plot(freqScale,Amp);
        else
@@ -1114,9 +1036,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        end
        xlim([0 20]); xlabel('Frequency, GHz');
        ylabel('FFT intensity, a.u.');
-       imgName = generateFileName('.','FFTintens','png');
-       title(params.label);
-       print(gcf,'-dpng',imgName);
+       num2clip([freqScale(find(freqScale>=0)).' Amp(find(freqScale>=0))]);
    end
    
    % make movie
@@ -1264,75 +1184,65 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        arrSize(1) = 1024;
        centerInd = floor(0.5*arrSize(1));
        
-       for xInd = 1:arrSize(2)
-	       disp(num2str(xInd));
-           tmp = MFile.Mx(1:arrSize(1),xInd,1:arrSize(3),1:arrSize(4));
-           if (params.background)
-               disp('Substract background');
-               for timeInd = 1:arrSize(1)
-                   tmp(timeInd,:,:,1) = tmp(timeInd,:,:,1) - Mx(zInd,:,:); 
-               end
+       tmp = MFile.Mx(1:arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4));
+       if (params.background)
+           disp('Substract background');
+           for timeInd = 1:arrSize(1)
+               tmp(timeInd,:,:,1) = tmp(timeInd,:,:,1) - Mx; 
            end
-
-           disp('FFT');
-           tmp = fft(tmp,[],1);
-           disp('Write');
-
-           FFTFile.Yx(1:centerInd,xInd,1:arrSize(3),1:arrSize(4)) = tmp(centerInd+1:end,:,:,:);
-           tmp = tmp(1:centerInd,:,:,:);
-           FFTFile.Yx(centerInd+1:arrSize(1),xInd,1:arrSize(3),1:arrSize(4)) = tmp; 
        end
+
+       disp('FFT');
+       tmp = fft(tmp,[],1);
+       disp('Write');
+
+       FFTFile.Yx(1:centerInd,1:arrSize(2),1:arrSize(3),1:arrSize(4)) = tmp(centerInd+1:end,:,:,:);
+       tmp = tmp(1:centerInd,:,:,:);
+       FFTFile.Yx(centerInd+1:arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4)) = tmp; 
+
        
        % process My projection
        disp('My');
        MFile = matfile(fullfile(folder,'My.mat'));
        FFTFile = matfile(fullfile(folder,'MyFFT.mat'),'Writable',true);
        
-       for xInd = 1:arrSize(2)
-	       disp(num2str(xInd));
-           tmp = MFile.My(1:arrSize(1),xInd,1:arrSize(3),1:arrSize(4));
-           if (params.background)
-               disp('Substract background');
-               for timeInd = 1:arrSize(1)
-                   tmp(timeInd,:,:,1) = tmp(timeInd,:,:,1) - My(zInd,:,:); 
-               end
+       tmp = MFile.My(1:arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4));
+       if (params.background)
+           disp('Substract background');
+           for timeInd = 1:arrSize(1)
+               tmp(timeInd,:,:,:) = tmp(timeInd,:,:,:) - My(:,:,:); 
            end
-
-           disp('FFT');
-           tmp = fft(tmp,[],1);
-           disp('Write');
-
-           FFTFile.Yy(1:centerInd,xInd,1:arrSize(3),1:arrSize(4)) = tmp(centerInd+1:end,:,:,:);
-           tmp = tmp(1:centerInd,:,:,:);
-           FFTFile.Yy(centerInd+1:arrSize(1),xInd,1:arrSize(3),1:arrSize(4)) = tmp; 
        end
+
+       disp('FFT');
+       tmp = fft(tmp,[],1);
+       disp('Write');
+
+       FFTFile.Yy(1:centerInd,1:arrSize(2),1:arrSize(3),1:arrSize(4)) = tmp(centerInd+1:end,:,:,:);
+       tmp = tmp(1:centerInd,:,:,:);
+       FFTFile.Yy(centerInd+1:arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4)) = tmp; 
+
        
        % process Mz projection
        disp('Mz');
        MFile = matfile(fullfile(folder,'Mz.mat'));
        FFTFile = matfile(fullfile(folder,'MzFFT.mat'),'Writable',true);
        
-       for xInd = 1:arrSize(2)
-	       disp(num2str(xInd));
-           tmp = MFile.Mz(1:arrSize(1),xInd,1:arrSize(3),1:arrSize(4));
-           if (params.background)
-               disp('Substract background');
-               for timeInd = 1:arrSize(1)
-                   tmp(timeInd,:,:,1) = tmp(timeInd,:,:,1) - Mz(zInd,:,:); 
-               end
+       tmp = MFile.Mz(1:arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4));
+       if (params.background)
+           disp('Substract background');
+           for timeInd = 1:arrSize(1)
+               tmp(timeInd,:,:,:) = tmp(timeInd,:,:,:) - Mz(:,:,:); 
            end
-
-           disp('FFT');
-           tmp = fft(tmp,[],1);
-           disp('Write');
-
-           FFTFile.Yz(1:centerInd,xInd,1:arrSize(3),1:arrSize(4)) = tmp(centerInd+1:end,:,:,:);
-           tmp = tmp(1:centerInd,:,:,:);
-           FFTFile.Yz(centerInd+1:arrSize(1),xInd,1:arrSize(3),1:arrSize(4)) = tmp; 
        end
-       
-       
-       
+
+       disp('FFT');
+       tmp = fft(tmp,[],1);
+       disp('Write');
+
+       FFTFile.Yz(1:centerInd,1:arrSize(2),1:arrSize(3),1:arrSize(4)) = tmp(centerInd+1:end,:,:,:);
+       tmp = tmp(1:centerInd,:,:,:);
+       FFTFile.Yz(centerInd+1:arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4)) = tmp;        
    end
    
    function plotYFreqMap(obj,varargin)

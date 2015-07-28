@@ -194,6 +194,7 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
      xlabel('Frequency (GHz)','FontSize',12,'FontName','Times'); xlim([0,15]);
      ylabel('FFT intensity (arb. units)', 'FontSize',12,'FontName','Times');
      xlim([params.freqLim(1) params.freqLim(2)]);
+     num2clip([freq(find(freq>=0)).' Y(find(freq>=0))]);
 
    end
    
