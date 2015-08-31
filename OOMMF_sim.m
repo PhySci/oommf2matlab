@@ -24,6 +24,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    zmax = 0.01;
    dim = 3;
    H
+   M
    totalSimTime % total simulation time
    iteration
    memLogFile = 'log.txt';
@@ -31,7 +32,12 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
  end
  
  properties (Access = protected)
-     availableProjs = {'x','X','y','Y','z','Z'}; % list of available spatial projections
+     % list of available spatial projections
+     availableProjs = {'x','X','y','Y','z','Z'};
+     
+     % list of available extention of magnetisation files
+     availableExts = {'omf', 'ohf', 'stc', 'ovf'};
+     availableFiles = {'*.omf'; '*.ohf'; '*.stc'; '*.ovf'};
      staticFile = 'static.stc';
      paramsFile = 'params.mat';
      MxName = 'Mx.mat';
@@ -39,26 +45,32 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      MzName = 'Mz.mat';
  end     
  
+ % public methods
  methods
-   function obj = OOMMF_sim()
-         disp('OOMMF_sim object was created');
+    
+   % Constructor of the class  
+   function obj = OOMMF_sim()    
+       disp('OOMMF_sim object was created');
    end
    
-   function [Mx,My,Mz] = loadParams(obj,varargin)
+   % Load only parameters from file
+   
+   function loadParams(obj,varargin)
        %% open file and check errors
-     availableExts ={'omf', 'ohf', 'stc'};
-       
      p = inputParser;
-     p.addParamValue('showMemory',false,@islogical);
-     p.addParamValue('fileExt','omf',@(x) any(strcmp(x,availableExts)));
+     p.addParamValue('fileExt','omf',@(x) any(strcmp(x,obj.availableExts)));
      p.parse(varargin{:});
      params = p.Results;
      
-     if (~strcmp(obj.fName,''))
-       fName = strcat(obj.fName,'.',params.fileExt);
+     [pathstr,name,ext] = fileparts(obj.fName);
+     
+     if (strcmp(name,'') && strcmp(ext,''))
+         [fName,fPath,~] = uigetfile({'*.omf'; '*.ohf'; '*.stc'; '*.ovf'});
+         fName = fullfile(fPath,fName);  
+     elseif (strcmp(ext,''))
+         fName = strcat(obj.fName,'.',params.fileExt);
      else
-       [fName,fPath,~] = uigetfile({'*.omf'; '*.stc';'*.ohf'});
-       fName = fullfile(fPath,fName);  
+         fName = obj.fName;
      end    
      
      fid = fopen(fName);
@@ -109,47 +121,24 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        end          
       end    
      end
- 
-     % determine file format
-     format='';
-     if (~isempty(strfind(line,'8')))
-       format = 'double';
-       testVal = 123456789012345.0;
-     elseif (~isempty(strfind(line,'4')))
-       format = 'single';
-       testVal = 1234567.0;
-     else
-       disp('Unknown format');
-       return
-     end    
-     
-    % read first test value
-    fTestVal = fread(fid, 1, format, 0, 'ieee-le');
-    if (fTestVal == testVal)
-      disp('Correct format')
-    else
-      disp('Wrong format');
-      return;
-    end
     
     fclose(fid);
     
    end
    
+   % Load only magnetisation from file
    function [Mx,My,Mz] = loadMagnetisation(obj,varargin)
        %% open file and check errors
-     availableExts ={'omf', 'ohf', 'stc'};
-     
      p = inputParser;
      p.addParamValue('showMemory',false,@islogical);
-     p.addParamValue('fileExt','omf',@(x) any(strcmp(x,availableExts)));
+     p.addParamValue('fileExt','omf',@(x) any(strcmp(x,obj.availableExts)));
      p.parse(varargin{:});
      params = p.Results;
      
      [pathstr,name,ext] = fileparts(obj.fName);
      
      if (strcmp(name,'') && strcmp(ext,''))
-         [fName,fPath,~] = uigetfile({'*.omf'; '*.stc';'*.ohf'});
+         [fName,fPath,~] = uigetfile({'*.omf'; '*.ohf'; '*.stc'; '*.ovf'});
          fName = fullfile(fPath,fName);  
      elseif (strcmp(ext,''))
          fName = strcat(obj.fName,'.',params.fileExt);
@@ -227,6 +216,15 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
     end
    end
    
+   % Load one file (parameters and data)
+   function loadSingleFile(obj)
+       [fName,fPath,~] = uigetfile(obj.availableFiles);
+       obj.fName = fullfile(fPath,fName);
+       obj.loadParams;
+       [Mx,My,Mz] = obj.loadMagnetisation;
+       obj.M = cat(4,Mx,My,Mz);
+   end    
+   
    % plot 3D vector plot of magnetisation 
    function plotM3D(obj)
        MagX = squeeze(obj.M(:,:,:,1));
@@ -242,7 +240,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        end
    end
    
-   % plot vector plot of magnetisation in XY plane
+   % Plot vector plot of magnetisation in XY plane
    % z is number of plane
    % should be rewritted 
    function plotMSurfXY(obj,slice,proj,varargin)
@@ -469,6 +467,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      p.addParamValue('showMemory',false,@islogical);
      p.addParamValue('makeFFT',false,@islogical);
      p.addParamValue('fileBase','',@isstr);
+     p.addParamValue('fileExt','',@isstr);
      p.addParamValue('savePath','',@isstr);
      p.addParamValue('value','M',@(x) any(strcmp(x,{'M','H'})));
      
@@ -482,20 +481,20 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      end
      
      % select extension for magnetization (*.omf) or field (*.ohf) files
-     if (strcmp(params.value,'M'))
-         fileExt = 'omf'; 
-     elseif (strcmp(params.value,'H'))
-         fileExt = 'ohf';
-     else
+     if (isempty(params.fileExt) && strcmp(params.value,'M'))
+         params.fileExt = 'omf'; 
+     elseif (isempty(params.fileExt) && strcmp(params.value,'H'))
+         params.fileExt = 'ohf';
+     elseif (isempty(params.fileExt))
          disp('Unknown physical value');
          return
      end    
                 
-     fList = obj.getFilesList(path,params.fileBase,fileExt);     
+     fList = obj.getFilesList(path,params.fileBase,params.fileExt);     
      file = fList(1);
      [~, fName, ~] = fileparts(file.name);
      obj.fName = strcat(path,'\',fName);
-     obj.loadParams('showMemory',params.showMemory,'fileExt',fileExt);
+     obj.loadParams('showMemory',params.showMemory,'fileExt',params.fileExt);
      save(strcat(savePath,'\params.mat'), 'obj');
           
      % evaluate required memory and compare with available space
@@ -527,7 +526,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
          [~, fName, ~] = fileparts(file.name);
          obj.fName = strcat(path,'\',fName);
          [XHeap(indHeap,:,:,:), YHeap(indHeap,:,:,:), ZHeap(indHeap,:,:,:)] = ...
-             obj.loadMagnetisation('fileExt',fileExt);
+             obj.loadMagnetisation('fileExt',params.fileExt);
                
          % write heaps to files
          if (indHeap >= heapSize || i == fileAmount)
