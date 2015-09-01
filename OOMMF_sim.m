@@ -638,8 +638,8 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    %  - saveAs is name of produced *.fig and *.png files
    %  - saveMatAs is name of *.mat file for saving of data
    %  - interpolate is logical value. True for interpolation of the dispersion curve
-   %  - direction is spatial direction along which dispersion will be
-   %  calculated
+   %  - direction is spatial direction along which dispersion will be calculated
+   %  - normalize is determine 
    function plotDispersion(obj,varargin)
        p = inputParser;
        p.addParamValue('xRange',0,@isnumeric);
@@ -652,7 +652,8 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        p.addParamValue('saveMatAs','',@isstr);
        p.addParamValue('interpolate',false,@islogical);
        p.addParamValue('direction','X',@(x)any(strcmp(x,obj.availableProjs)));
-       p.addParamValue('scale','log',@(x) any(strcmp(x,{'log','norm'})))
+       p.addParamValue('scale','log',@(x) any(strcmp(x,{'log','norm'})));
+       p.addParamValue('normalize',true,@islogical);
        
        % process incomming parameters
        p.parse(varargin{:});
@@ -662,7 +663,6 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        % read file of simulation parameters
        simParams = obj.getSimParams;
-       simParams.dt = 2e-11;
        
        MFile = matfile(fullfile(obj.folder,strcat('M',params.proj,'FFT.mat')));
        mSize = size(MFile,strcat('Y',params.proj));
@@ -732,11 +732,20 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        Amp = Amp(:,waveVectorInd(1):waveVectorInd(2));
        
        if (strcmp(params.scale,'log'))
-           ref = min(Amp(find(Amp(:))));
+           if (params.normalize)
+               ref = min(Amp(find(Amp(:))));
+           else 
+               ref = 1;
+           end    
            res = log10(Amp/ref);
        else
-           res = (Amp - min(Amp(:)));
-           res = Amp/max(Amp(:));
+           if (params.normalize)
+               res = (Amp - min(Amp(:)));
+               res = Amp/max(Amp(:));
+           else 
+               res = Amp;
+           end
+           
        end
        
        % plot image
@@ -757,7 +766,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        end
        
        % plot image
-       imagesc(waveVectorScale,freqScale,res);
+       imagesc(waveVectorScale,freqScale,res, [0 11e4]);
             
        colormap(jet); axis xy;
        xlabel('Wave vector k_x (rad/\mum)','FontSize',16,'FontName','Times');
