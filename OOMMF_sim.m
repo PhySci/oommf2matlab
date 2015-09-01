@@ -1170,12 +1170,15 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    % save results to files
    % PARAMS
    %    folder - where take the files (path)
-   %    background - substract background (boolean) 
+   %    background - substract background (boolean)
+   %    useGPU - use GPU (boolean)
    function makeFFT(obj,folder,varargin)
        
        p = inputParser;
        p.addRequired('folder',@isdir);
        p.addParamValue('background',true,@islogical);
+       p.addParamValue('useGPU',false,@islogical);
+       p.addParamValue('idGPU',1,@isnumeric);
        p.parse(folder,varargin{:});
        params = p.Results;
        
@@ -1185,72 +1188,96 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        end    
 
        % process Mx projection
-       disp('Mx');
        MFile = matfile(fullfile(folder,'Mx.mat'));
        FFTFile = matfile(fullfile(folder,'MxFFT.mat'),'Writable',true);
        arrSize = size(MFile,'Mx');
-       arrSize(1) = 1024;
        centerInd = floor(0.5*arrSize(1));
        
-       tmp = MFile.Mx(1:arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4));
-       if (params.background)
-           disp('Substract background');
-           for timeInd = 1:arrSize(1)
-               tmp(timeInd,:,:,1) = tmp(timeInd,:,:,1) - Mx; 
+       % determine available memory space and evalute chunk size  
+       try
+           GPUdevice = gpuDevice(params.idGPU);
+           avMem = GPUdevice.AvailableMemory;
+           chunkSize = floor(avMem/(8*arrSize(1))); 
+       catch err
+           disp('Problem with GPU was generated');
+           rethrow(err);
+           return
+       end    
+      
+       % read and process magnetization, chunk by chunk
+       % for current task I will select plane of cells, perpendicular to OY
+       % axis
+       for yIndex = 1:arrSize(3)
+           disp(['Chunk numder', yIndex]);
+           
+           %% process Mx projection
+           tmp = MFile.Mx(1:arrSize(1),1:arrSize(2),yIndex,1:arrSize(4));
+           % subtract bavkground for all time frames
+           if (params.background)
+              disp('Substract background');
+              for timeInd = 1:arrSize(1)
+                 tmp(timeInd,:,1) = tmp(timeInd,:,1) - Mx(:,yIndex,:); 
+              end
            end
-       end
-
-       disp('FFT');
-       tmp = fft(tmp,[],1);
-       disp('Write');
-
-       FFTFile.Yx(1:centerInd,1:arrSize(2),1:arrSize(3),1:arrSize(4)) = tmp(centerInd+1:end,:,:,:);
-       tmp = tmp(1:centerInd,:,:,:);
-       FFTFile.Yx(centerInd+1:arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4)) = tmp; 
-
-       
-       % process My projection
-       disp('My');
-       MFile = matfile(fullfile(folder,'My.mat'));
-       FFTFile = matfile(fullfile(folder,'MyFFT.mat'),'Writable',true);
-       
-       tmp = MFile.My(1:arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4));
-       if (params.background)
-           disp('Substract background');
-           for timeInd = 1:arrSize(1)
-               tmp(timeInd,:,:,:) = tmp(timeInd,:,:,:) - My(:,:,:); 
+          
+           %perform FFT
+           disp('FFT');
+           gpuInput = gpuArray(tmp);
+           gpuOut = fft(gpuInput,[],1);
+           tmp = gather(gpuOut);
+          
+           disp('Write');
+           FFTFile.Yx(1:centerInd,1:arrSize(2),yIndex,1:arrSize(4)) = tmp(centerInd+1:end,:,:);
+           tmp = tmp(1:centerInd,:,:);
+           FFTFile.Yx(centerInd+1:arrSize(1),1:arrSize(2),yIndex,1:arrSize(4)) = tmp;
+          
+          
+           %% process My projection
+           MFile = matfile(fullfile(folder,'My.mat'));
+           FFTFile = matfile(fullfile(folder,'MyFFT.mat'),'Writable',true);
+           tmp = MFile.My(1:arrSize(1),1:arrSize(2),yIndex,1:arrSize(4));
+           % subtract bavkground for all time frames
+           if (params.background)
+               disp('Substract background');
+               for timeInd = 1:arrSize(1)
+                  tmp(timeInd,:,1) = tmp(timeInd,:,1) - My(:,yIndex,:); 
+               end
            end
-       end
-
-       disp('FFT');
-       tmp = fft(tmp,[],1);
-       disp('Write');
-
-       FFTFile.Yy(1:centerInd,1:arrSize(2),1:arrSize(3),1:arrSize(4)) = tmp(centerInd+1:end,:,:,:);
-       tmp = tmp(1:centerInd,:,:,:);
-       FFTFile.Yy(centerInd+1:arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4)) = tmp; 
-
-       
-       % process Mz projection
-       disp('Mz');
-       MFile = matfile(fullfile(folder,'Mz.mat'));
-       FFTFile = matfile(fullfile(folder,'MzFFT.mat'),'Writable',true);
-       
-       tmp = MFile.Mz(1:arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4));
-       if (params.background)
-           disp('Substract background');
-           for timeInd = 1:arrSize(1)
-               tmp(timeInd,:,:,:) = tmp(timeInd,:,:,:) - Mz(:,:,:); 
+          
+           %perform FFT
+           disp('FFT');
+           gpuInput = gpuArray(tmp);
+           gpuOut = fft(gpuInput,[],1);
+           tmp = gather(gpuOut);
+          
+           disp('Write');
+           FFTFile.Yy(1:centerInd,1:arrSize(2),yIndex,1:arrSize(4)) = tmp(centerInd+1:end,:,:);
+           tmp = tmp(1:centerInd,:,:);
+           FFTFile.Yy(centerInd+1:arrSize(1),1:arrSize(2),yIndex,1:arrSize(4)) = tmp;
+           
+           %% process Mz projection
+           tmp = MFile.Mz(1:arrSize(1),1:arrSize(2),yIndex,1:arrSize(4));
+           MFile = matfile(fullfile(folder,'Mz.mat'));
+           FFTFile = matfile(fullfile(folder,'MzFFT.mat'),'Writable',true);
+           % subtract bavkground for all time frames
+           if (params.background)
+               disp('Substract background');
+               for timeInd = 1:arrSize(1)
+                  tmp(timeInd,:,1) = tmp(timeInd,:,1) - Mz(:,yIndex,:); 
+               end
            end
-       end
-
-       disp('FFT');
-       tmp = fft(tmp,[],1);
-       disp('Write');
-
-       FFTFile.Yz(1:centerInd,1:arrSize(2),1:arrSize(3),1:arrSize(4)) = tmp(centerInd+1:end,:,:,:);
-       tmp = tmp(1:centerInd,:,:,:);
-       FFTFile.Yz(centerInd+1:arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4)) = tmp;        
+          
+           %perform FFT
+           disp('FFT');
+           gpuInput = gpuArray(tmp);
+           gpuOut = fft(gpuInput,[],1);
+           tmp = gather(gpuOut);
+          
+           disp('Write');
+           FFTFile.Yz(1:centerInd,1:arrSize(2),yIndex,1:arrSize(4)) = tmp(centerInd+1:end,:,:);
+           tmp = tmp(1:centerInd,:,:);
+           FFTFile.Yz(centerInd+1:arrSize(1),1:arrSize(2),yIndex,1:arrSize(4)) = tmp;
+       end     
    end
    
    function plotYFreqMap(obj,varargin)
