@@ -494,7 +494,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      file = fList(1);
      [~, fName, ~] = fileparts(file.name);
      obj.fName = strcat(path,'\',fName);
-     obj.loadParams('showMemory',params.showMemory,'fileExt',params.fileExt);
+     obj.loadParams('fileExt',params.fileExt);
      save(strcat(savePath,'\params.mat'), 'obj');
           
      % evaluate required memory and compare with available space
@@ -1170,12 +1170,15 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    % save results to files
    % PARAMS
    %    folder - where take the files (path)
-   %    background - substract background (boolean) 
+   %    background - substract background (boolean)
+   %    useGPU - use GPU (boolean)
    function makeFFT(obj,folder,varargin)
        
        p = inputParser;
        p.addRequired('folder',@isdir);
        p.addParamValue('background',true,@islogical);
+       p.addParamValue('useGPU',false,@islogical);
+       p.addParamValue('idGPU',1,@isnumeric);
        p.parse(folder,varargin{:});
        params = p.Results;
        
@@ -1189,7 +1192,6 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        MFile = matfile(fullfile(folder,'Mx.mat'));
        FFTFile = matfile(fullfile(folder,'MxFFT.mat'),'Writable',true);
        arrSize = size(MFile,'Mx');
-       arrSize(1) = 1024;
        centerInd = floor(0.5*arrSize(1));
        
        tmp = MFile.Mx(1:arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4));
