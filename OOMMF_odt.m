@@ -230,6 +230,7 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
        p = inputParser;
        p.addParamValue('proj','z',@(x) any(strcmp(x,{'x','X','y','Y','z','Z'})));
        p.addParamValue('saveAs','',@isstr);
+       p.addParamValue('xLim',0,@isnumeric);
        p.parse(varargin{:});
        params = p.Results;
        
@@ -238,9 +239,13 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
        B = eval(strcat('obj.B',params.proj));
        M = eval(strcat('obj.M',params.proj));
        
-       plot(B/100,M,'-b'); grid on
+       plot(B/100,M,'-bo'); grid on
        xlabel('H, kOe'); ylabel('M/M_s');
-       xlim([0.0105*min(B(:)) 0.0105*max(B(:))]);
+       if (params.xLim ==0)
+          xlim([0.0105*min(B(:)) 0.0105*max(B(:))]);
+       else
+          xlim([params.xLim(1) params.xLim(2)]) 
+       end    
        ylim([-1.05 1.05]);
        
        % save img
