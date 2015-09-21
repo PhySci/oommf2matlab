@@ -1194,7 +1194,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        MFile = matfile(fullfile(folder,'Mx.mat'));
        FFTFile = matfile(fullfile(folder,'MxFFT.mat'),'Writable',true);
        arrSize = size(MFile,'Mx');
-       centerInd = floor(0.5*arrSize(1));
+       centerInd = ceil(0.5*arrSize(1));
 
        Mx = MFile.Mx(1:arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4));
        if (params.background)
@@ -1209,9 +1209,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        clear Mx
        
        disp('Write');
-       FFTFile.Yx(1:centerInd,1:arrSize(2),1:arrSize(3),1:arrSize(4)) = tmp(centerInd+1:end,:,:,:);
-       tmp = tmp(1:centerInd,:,:,:);
-       FFTFile.Yx(centerInd+1:arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4)) = tmp; 
+       FFTFile.Yx = fftshift(tmp); 
          
        
        % process My projection
@@ -1232,9 +1230,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        clear My
        
        disp('Write');
-       FFTFile.Yy(1:centerInd,1:arrSize(2),1:arrSize(3),1:arrSize(4)) = tmp(centerInd+1:end,:,:,:);
-       tmp = tmp(1:centerInd,:,:,:);
-       FFTFile.Yy(centerInd+1:arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4)) = tmp; 
+       FFTFile.Yy = fftshift(tmp);
 
        
        % process Mz projection
@@ -1255,9 +1251,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        clear Mz
        
        disp('Write');
-       FFTFile.Yz(1:centerInd,1:arrSize(2),1:arrSize(3),1:arrSize(4)) = tmp(centerInd+1:end,:,:,:);
-       tmp = tmp(1:centerInd,:,:,:);
-       FFTFile.Yz(centerInd+1:arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4)) = tmp;        
+       FFTFile.Yz = fftshift(tmp);        
    end
    
    function plotYFreqMap(obj,varargin)
@@ -1470,7 +1464,52 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        % calculate dynamic components
        % save dynamic components
        % select time range, not spatial
+   end 
+   
+   
+   % Interpolatation of time dependences for non-regular time step
+   function interpTimeDependence(obj, varargin)
+     % read input patameters  
+       p = inputParser;
+       p.addParamValue('timeStep',1e-11,@isnumeric);
+       p.addParamValue('tableFile','table.txt',@isstr);
+       p.parse(varargin{:});
+       params = p.Results;
+     
+       
+     tableData=[];
+     % read tableFile, get time scale
+     try 
+         fid = fopen(params.tableFile);
+         fgetl(fid); % skip first text line
+         while ~feof(fid)
+             line = fgetl(fid);
+             tableData = [tableData; sscanf(line,'%g').'];
+         end    
+         fclose(fid);
+     catch err
+         disp(err.message);
+         return
+     end
+     
+     % load projection of magnetisation
+     timeScaleOld = tableData(:,1); % original time scale
+     timeScaleNew = linspace(timeScaleOld(1),timeScaleOld(end),size(timeScaleOld,1)).';
+     
+     % interpolate
+     MFile = matfile('Mx.mat');
+     OutMFile = matfile('MxInterp.mat');
+     OutMFile.Mx = obj.interpArray(MFile.Mx, timeScaleOld, timeScaleNew)
+     
+     MFile = matfile('My.mat');
+     OutMFile = matfile('MyInterp.mat');
+     OutMFile.My = obj.interpArray(MFile.My, timeScaleOld, timeScaleNew)
+     
+     MFile = matfile('Mz.mat');
+     OutMFile = matfile('MzInterp.mat');
+     OutMFile.Mz = obj.interpArray(MFile.Mz, timeScaleOld, timeScaleNew)   
    end    
+   
    % END OF PUBLIC METHODS
  end
  
@@ -1537,25 +1576,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        fprintf(fid,strcat('MemUsedMATLAB :',num2str(res.MemUsedMATLAB),' \n'));
        fclose(fid);
    end
-   
-   % get Mx projection of magnetisation
-   function Mx = getMx(time,x,y,z)
-       File = matfile(obj.MxName);
-       Mx = File.Mx(time,x,y,z)
-   end  
-   
-   % get My projection of magnetisation
-   function My = getMy(time,x,y,z)
-       File = matfile(obj.MyName);
-       My = File.My(time,x,y,z)
-   end  
-   
-   % get Mz projection of magnetisation
-   function Mz = getMz(time,x,y,z)
-       File = matfile(obj.MyName);
-       Mz = File.Mz(time,x,y,z)
-   end
-   
+     
     %scan folder %path% and select all %ext% files
    function fList = getFilesList(obj,path,fileBase,ext)
      if (isdir(path))
@@ -1575,6 +1596,21 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        return;
      end
    end
+   
+   % interpolate array along 1st dimension
+   % inpArr - input 4D array
+   % oldScale - original scale of sampling
+   % newScale - new scale of sampling 
+   function outArr = interpArray(obj,inpArr, oldScale, newScale)
+       for xInd = 1:size(inpArr,2)
+         for yInd = 1:size(inpArr,3)
+             for zInd = 1:size(inpArr,4)
+                 pointM = inpArr(:,xInd,yInd,zInd);
+                 outArr(:,xInd,yInd,zInd) = interp1(oldScale,pointM,newScale);
+             end
+         end
+      end    
+   end    
    
  % END OF PRIVATE METHODS
  end
