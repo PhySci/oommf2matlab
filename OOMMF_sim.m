@@ -1602,14 +1602,19 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    % oldScale - original scale of sampling
    % newScale - new scale of sampling 
    function outArr = interpArray(obj,inpArr, oldScale, newScale)
-       for xInd = 1:size(inpArr,2)
-         for yInd = 1:size(inpArr,3)
-             for zInd = 1:size(inpArr,4)
-                 pointM = inpArr(:,xInd,yInd,zInd);
-                 outArr(:,xInd,yInd,zInd) = interp1(oldScale,pointM,newScale);
-             end
-         end
-      end    
+       arrSize = size(inpArr);
+       maxInd = arrSize(2)*arrSize(3)*arrSize(4);
+       
+       tmp = zeros(arrSize);
+       parfor ind = 1 : maxInd
+          I = ceil(ind/(Sz(3)*Sz(4)));
+          ost  = ind - (I-1)*(Sz(3)*Sz(4));   
+          J = ceil(ost/Sz(4));
+          K = ost - (J-1)* (Sz(4));
+          pointM = inpArr(1:arrSize(1),I,J,K);
+          tmp(1:arrSize(1),I,J,K) = interp1(oldScale,pointM,newScale); 
+       end
+       outArr = tmp;
    end    
    
  % END OF PRIVATE METHODS
