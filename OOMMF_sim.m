@@ -530,11 +530,23 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                
          % write heaps to files
          if (indHeap >= heapSize || i == fileAmount)
-             disp('Write to file');
-             XFile.Mx((i-indHeap+1):i,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = XHeap(1:indHeap,1:end,1:end,1:end);
-             YFile.My((i-indHeap+1):i,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = YHeap(1:indHeap,1:end,1:end,1:end); 
-             ZFile.Mz((i-indHeap+1):i,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = ZHeap(1:indHeap,1:end,1:end,1:end);
-             indHeap = 1;
+             switch (params.value)
+                 case 'M'    
+                    disp('Write to file');
+                    XFile.Mx((i-indHeap+1):i,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = cast(XHeap(1:indHeap,1:end,1:end,1:end),'single');
+                    YFile.My((i-indHeap+1):i,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = cast(YHeap(1:indHeap,1:end,1:end,1:end),'single'); 
+                    ZFile.Mz((i-indHeap+1):i,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = cast(ZHeap(1:indHeap,1:end,1:end,1:end),'single');
+                    indHeap = 1;
+                 case 'H'    
+                    disp('Write to file');
+                    XFile.Hx((i-indHeap+1):i,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = XHeap(1:indHeap,1:end,1:end,1:end);
+                    YFile.Hy((i-indHeap+1):i,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = YHeap(1:indHeap,1:end,1:end,1:end); 
+                    ZFile.Hz((i-indHeap+1):i,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = ZHeap(1:indHeap,1:end,1:end,1:end);
+                    indHeap = 1;
+                 otherwise
+                     disp('Unknpwn physical value');
+                     return
+             end        
          else
              indHeap = indHeap +1;
          end    
@@ -714,20 +726,27 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            Amp = mean(mean(abs(Y),4),3);
            Amp = fftshift(abs(Amp),2);
            clearvars Y;
+           waveVectorScale = 2*pi*obj.getWaveScale(obj.xstepsize/1e-6,mSize(2));
        elseif (strcmp(params.direction,'y'))
            Y(:,:,:,:) = fft(FFTres,[],3);
            clearvars FFTres;
            Amp = mean(mean(abs(Y),4),2);
            Amp = fftshift(abs(Amp),2);
            clearvars Y;
+           waveVectorScale = 2*pi*obj.getWaveScale(obj.ystepsize/1e-6,mSize(3));
        elseif (strcmp(params.direction,'z'))
            Y(:,:,:,:) = fft(FFTres,[],4);
            clearvars FFTres;
-           Amp = mean(mean(abs(Y),2),3);
+           Amp = squeeze(mean(mean(abs(Y),2),3));
            Amp = fftshift(abs(Amp),2);
            clearvars Y;
+           waveVectorScale = 2*pi*obj.getWaveScale(obj.zstepsize/1e-6,mSize(4));
        end    
 
+       [~,waveVectorInd(1)] = min(abs(waveVectorScale-params.waveLimit(1)));
+       [~,waveVectorInd(2)] = min(abs(waveVectorScale-params.waveLimit(2)));
+       waveVectorScale = waveVectorScale(waveVectorInd(1):waveVectorInd(2));       
+   
            
        Amp = Amp(:,waveVectorInd(1):waveVectorInd(2));
        
@@ -1189,6 +1208,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
           [MxStatic,MyStatic,MzStatic] = obj.getStatic(params.folder);
        end    
 
+
        % process Mx projection
        disp('Mx');
        MFile = matfile(fullfile(folder,'Mx.mat'));
@@ -1606,7 +1626,8 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
          for yInd = 1:size(inpArr,3)
              for zInd = 1:size(inpArr,4)
                  pointM = inpArr(:,xInd,yInd,zInd);
-                 outArr(:,xInd,yInd,zInd) = interp1(oldScale,pointM,newScale);
+                 outArr(:,xInd,yInd,zInd) = ...
+                     cast(interp1(oldScale,pointM,newScale),'single');
              end
          end
       end    
