@@ -1186,14 +1186,14 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      
    end    
    
+   function makeFFT(obj,folder,varargin)
    % perform FFT transformation from time to frequency domain
    % save results to files
    % PARAMS
    %    folder - where take the files (path)
    %    background - substract background (boolean)
    %    useGPU - use GPU (boolean)
-   function makeFFT(obj,folder,varargin)
-       
+   
        p = inputParser;
        p.addRequired('folder',@isdir);
        p.addParamValue('background',true,@islogical);
@@ -1324,25 +1324,52 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    end    
    
    
-   %% plot amplitude and phase of modes in (y,z) coordinates
-   %for given frequency and Kx wave number
-   function plotFreqXWaveSlice(obj,freq,kx,varargin)
-       
+   function plotFreqWaveSlice(obj,freq,k,varargin)
+   % plot amplitude and phase of modes in (y,z) coordinates
+   %for given frequency and k wave number
+   % PARAMS
+   %   freq - frequency of interest
+   %    
+   
        p = inputParser;
+       % region of interest
        p.addRequired('freq',@isnumeric);
-       p.addRequired('kx',@isnumeric);
-       p.addParamValue('yRange',[81 120],@isnumeric);
-       p.addParamValue('zRange',:,@isnumeric);
-       p.addParamValue('saveAs','',@isstr);
+       p.addRequired('k',@isnumeric);
+       p.addParamValue('direction','z',@(x)any(strcmp(x,obj.availableProjs)));
        p.addParamValue('proj','z',@(x)any(strcmp(x,obj.availableProjs)));
        
-       p.parse(freq,kx,varargin{:});
+       % range of spatial limits
+       p.addParamValue('xRange','',@isnumeric)
+       p.addParamValue('yRange','',@isnumeric);
+       p.addParamValue('zRange','',@isnumeric);
+       
+       % output params
+       p.addParamValue('saveAs','',@isstr);
+       
+       p.parse(freq,k,varargin{:});
+       
+       % process input parameters
        params = p.Results;
+
+       % load parameters of simulation
+       obj.getSimParams;
+       
        params.proj = lower(params.proj);
+       params.direction = lower(params.direction);
        
-       % load file of parameters
-       simParams = obj.getSimParams;
+       if isempty(params.xRange)
+           params.xRange = [1 obj.xnodes];
+       end
        
+       if isempty(params.yRange)
+           params.yRange = [1 obj.ynodes];
+       end
+       
+       if isempty(params.zRange)
+           params.zRange = [1 obj.znodes];
+       end
+       
+       % get required projection of magnetization
        if (strcmp(params.proj,'z'))
            FFTfile = matfile(fullfile(pwd,'MzFFT.mat'));
            arrSize = size(FFTfile,'Yz');
@@ -1357,30 +1384,61 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            return
        end
        
-       freqScale = obj.getWaveScale(simParams.dt,arrSize(1))/1e9;
+       freqScale = obj.getWaveScale(obj.dt,arrSize(1))/1e9;
        [~,freqInd] = min(abs(freqScale - params.freq));
-       
-       kxScale = 2*pi*obj.getWaveScale(simParams.xstepsize*1e6,arrSize(2)); 
-       [~,kxInd] = min(abs(kxScale - params.kx));
-       
+              
+       % select required region of FFT file
        if (strcmp(params.proj,'z'))
-           Yt = squeeze(FFTfile.Yz(freqInd,:,params.yRange(1):params.yRange(2),:));
+           Yt = squeeze(FFTfile.Yz(freqInd,...
+               params.xRange(1):params.xRange(2),...
+               params.yRange(1):params.yRange(2),...
+               params.zRange(1):params.zRange(2)));
        elseif (strcmp(params.proj,'y'))
-           Yt = squeeze(FFTfile.Yy(freqInd,:,params.yRange(1):params.yRange(2),:));
+           Yt = squeeze(FFTfile.Yy(freqInd,...
+               params.xRange(1):params.xRange(2),...
+               params.yRange(1):params.yRange(2),...
+               params.zRange(1):params.zRange(2)));
        elseif (strcmp(params.proj,'x'))
-           Yt = squeeze(FFTfile.Yx(freqInd,:,params.yRange(1):params.yRange(2),:));
+           Yt = squeeze(FFTfile.Yx(freqInd,...
+               params.xRange(1):params.xRange(2),...
+               params.yRange(1):params.yRange(2),...
+               params.zRange(1):params.zRange(2)));
        else
            disp('Unknown projection');
            return
        end
        
-       Ytx = fft(Yt,[],1);
-       Ytx = fftshift(Ytx,1);
+       % perform FFT along desired spatial direction
+       if (strcmp(params.direction,'x'))
+           kScale = 2*pi*obj.getWaveScale(obj.xstepsize*1e6,arrSize(2)); 
+           [~,kInd] = min(abs(kScale - params.k));
+           
+           Yts = fft(Yt,[],1);
+           Yts = fftshift(Ytx,1);     
+           YtsSlice = squeeze(Yts(kInd,:,:));
+       elseif (strcmp(params.direction,'y'))
+           kScale = 2*pi*obj.getWaveScale(obj.ystepsize*1e6,arrSize(3)); 
+           [~,kInd] = min(abs(kScale - params.k));
+           
+           Yts = fft(Yt,[],2);
+           Yts = fftshift(Yts,2);     
+           YtsSlice = squeeze(Yts(:,kInd,:));
+       elseif (strcmp(params.direction,'z'))
+           kScale = 2*pi*obj.getWaveScale(obj.zstepsize*1e6,arrSize(4)); 
+           [~,kInd] = min(abs(kScale - params.k));
+           
+           Yts = fft(Yt,[],3);
+           Yts = fftshift(Yts,3);     
+           YtsSlice = squeeze(Yts(:,:,kInd));
+       else
+           disp('Unknown direction');
+           return
+       end    
        
-       YtxSlice = squeeze(Ytx(kxInd,:,:));
        
-       Amp = abs(YtxSlice);
-       Phase = angle(YtxSlice);
+       % plot results
+       Amp = abs(YtsSlice);
+       Phase = angle(YtsSlice);
        figure();
        subplot(211);
            imagesc(Amp.',[0 max(Amp(:))]);
@@ -1390,7 +1448,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            colormap(flipud(gray));
            freezeColors;
            cbfreeze;
-           title(['\nu = ',num2str(params.freq),' GHz, k_x = ',num2str(params.kx),...
+           title(['\nu = ',num2str(params.freq),' GHz, k_x = ',num2str(params.k),...
                '\mum, M_',params.proj,' projection'],'FontSize',14,'FontName','Times');
        
        subplot(212);
@@ -1401,15 +1459,11 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            cblabel('rad.');
            colormap(hsv);
       
-       
-           
-       
-              % save img
+       % save img
        if (~strcmp(params.saveAs,''))
            fName = strcat(params.saveAs,'_f',num2str(params.freq),'GHz_k',...
-               num2str(params.kx),'mum_M',params.proj);
-           savefig(strcat(fName,'.fig'));
-           print(gcf,'-dpng',strcat(fName,'.png'));
+               num2str(params.k),'mum_M',params.proj);
+           obg.savePlotAs(fName);
        end    
        
    end 
@@ -1487,9 +1541,10 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    end 
    
    
-   % Interpolatation of time dependences for non-regular time step
    function interpTimeDependence(obj, varargin)
-     % read input patameters  
+   % Interpolatation of time dependences for non-regular time step
+  
+   % read input patameters  
        p = inputParser;
        p.addParamValue('timeStep',1e-11,@isnumeric);
        p.addParamValue('tableFile','table.txt',@isstr);
@@ -1631,6 +1686,14 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
              end
          end
       end    
+   end 
+   
+   % save current plot 
+   function savePlotAs(obj,fName)
+       if (~strcmp(fName,''))
+           savefig(strcat(fName,'.fig'));
+           print(gcf,'-dpng',strcat(fName,'.png'));
+       end
    end    
    
  % END OF PRIVATE METHODS
