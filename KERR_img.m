@@ -69,6 +69,7 @@ classdef KERR_img < hgsetget
             rFileName = strcat(obj.fName,'-r.txt'); 
             [rFileId,errMsg] = fopen(rFileName); % reflectivity file name
             if (rFileId <0)
+                disp('Load reflectivity');
                 disp(errMsg);
                 return
             end
@@ -86,6 +87,7 @@ classdef KERR_img < hgsetget
             [kFileId,errMsg] = fopen(kFileName); % reflectivity file name
             
             if (kFileId <0)
+                disp('Load Kerr image');
                 disp('No Kerr image was found');
             else          
                 A = fscanf(kFileId,'%f');
@@ -105,7 +107,8 @@ classdef KERR_img < hgsetget
             end    
             
             imagesc(obj.getXScale,obj.getYScale,obj.ref);
-            axis xy; colormap(copper);
+            %axis xy;
+            colormap(copper);
             xlabel('X,\mum'); ylabel('Y,\mum');
             title(strcat('Reflectivity .',obj.fName));
         end    
