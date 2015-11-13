@@ -1039,22 +1039,9 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        
    end 
-   
-   
-   function plotFFTsliceCommon(obj,freqScale,waveScale,xlabel,ylabel,data,varargin)
-       p = inputParser;
-       p.addParamValue('freq',0,@isnumeric);
-       p.addParamValue('ySlice',3,@isnumeric);
-       p.addParamValue('zRange',:,@isnumeric);
-       p.addParamValue('scale','log', @(x) any(strcmp(x,{'norm','log'})));
-       p.addParamValue('saveAs','',@isstr);
-       p.parse(varargin{:});
-       params = p.Results;
-       
-       
-   end    
-   
-   % plot dependence of FFT intensity on frequency
+     
+   % plot average dependence of FFT intensity on frequency
+   % The absolute value of FFT coefficients are averaged over volume.
    function plotFFTIntensity(obj,varargin)
        
        p = inputParser;
@@ -1089,18 +1076,17 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        FFT = FFTFile.Yz(:,params.xRange(1):params.xRange(2),...
            params.yRange(1):params.yRange(2),...
            params.zRange(1):params.zRange(2));
-       Y = mean(mean(mean(FFT,4),3),2);
-       Amp = abs(Y);
+       Amp = mean(mean(mean(abs(FFT),4),3),2);
        
-       freqScale = obj.getWaveScale(2e-11,size(Amp,1))/1e9;
+       freqScale = obj.getWaveScale(obj.dt,size(Amp,1))/1e9;
        if (strcmp(params.scale,'norm'))
            plot(freqScale,Amp);
        else
            semilogy(freqScale,Amp);
        end
-       xlim([0 20]); xlabel('Frequency, GHz');
+       xlim([0 25]); xlabel('Frequency, GHz');
        ylabel('FFT intensity, a.u.');
-       num2clip([freqScale(find(freqScale>=0)).' Amp(find(freqScale>=0))]);
+       %num2clip([freqScale(find(freqScale>=0)).' Amp(find(freqScale>=0))]);
    end
    
    % make movie
@@ -1262,11 +1248,19 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
 
        disp('FFT');
        tmp = fft(Mx,[],1);
-       clear Mx
-       
+       clear Mx MxStatic
        disp('Write');
-       FFTFile.Yx = fftshift(tmp); 
-         
+       if mod(arrSize(1),2)
+           FFTFile.Yx(1:floor(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),1:arrSize(4)) =...
+               tmp((ceil(0.5*arrSize(1))+1):arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4));
+           FFTFile.Yx(ceil(0.5*arrSize(1)):arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4)) =...
+               tmp(1:ceil(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),1:arrSize(4));
+       else
+           FFTFile.Yx(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4)) =...
+               tmp((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4));
+           FFTFile.Yx((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4)) =...
+               tmp(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4));
+       end
        
        % process My projection
        disp('My');
@@ -1283,10 +1277,21 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
 
        disp('FFT');
        tmp = fft(My,[],1);
-       clear My
+       clear My MyStatic
        
+ 
        disp('Write');
-       FFTFile.Yy = fftshift(tmp);
+       if mod(arrSize(1),2)
+           FFTFile.Yy(1:floor(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),1:arrSize(4)) =...
+               tmp((ceil(0.5*arrSize(1))+1):arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4));
+           FFTFile.Yy(ceil(0.5*arrSize(1)):arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4)) =...
+               tmp(1:ceil(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),1:arrSize(4));
+       else
+           FFTFile.Yy(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4)) =...
+               tmp((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4));
+           FFTFile.Yy((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4)) =...
+               tmp(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4));
+       end
 
        
        % process Mz projection
@@ -1303,9 +1308,22 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        end
 
        disp('FFT');
+
        tmp = fft(Mz,[],1);
-       clear Mz
+       clear Mz MzStatic
        
+       disp('Write');
+       if mod(arrSize(1),2)
+           FFTFile.Yz(1:floor(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),1:arrSize(4)) =...
+               tmp((ceil(0.5*arrSize(1))+1):arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4));
+           FFTFile.Yz(ceil(0.5*arrSize(1)):arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4)) =...
+               tmp(1:ceil(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),1:arrSize(4));
+       else
+           FFTFile.Yz(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4)) =...
+               tmp((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4));
+           FFTFile.Yz((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4)) =...
+               tmp(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4));
+       end
        disp('Write');
        FFTFile.Yz = fftshift(tmp);        
    end
@@ -1393,6 +1411,27 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        p.addParamValue('yRange','',@isnumeric);
        p.addParamValue('zRange','',@isnumeric);
        
+   end    
+   
+   
+   function plotFreqWaveSlice(obj,freq,k,varargin)
+   % plot amplitude and phase of modes in (y,z) coordinates
+   %for given frequency and k wave number
+   % PARAMS
+   %   freq - frequency of interest
+   %    
+   
+       p = inputParser;
+       % region of interest
+       p.addRequired('freq',@isnumeric);
+       p.addRequired('k',@isnumeric);
+       p.addParamValue('direction','z',@(x)any(strcmp(x,obj.availableProjs)));
+       
+       % range of spatial limits
+       p.addParamValue('xRange','',@isnumeric)
+       p.addParamValue('yRange','',@isnumeric);
+       p.addParamValue('zRange','',@isnumeric);
+       
        % output params
        p.addParamValue('saveAs','',@isstr);
        
@@ -1441,7 +1480,6 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        [~,freqInd] = min(abs(freqScale - params.freq));
               
        % select required region of FFT file
-       tic();
        if (strcmp(params.proj,'z'))
            Yt = squeeze(FFTfile.Yz(freqInd,...
                params.xRange(1):params.xRange(2),...
@@ -1468,7 +1506,6 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        end
        toc()
        
-       tic();
        % perform FFT along desired spatial direction
        if (strcmp(params.direction,'x'))
            kScale = 2*pi*obj.getWaveScale(obj.xstepsize*1e6,arrSize(2)); 
@@ -1515,8 +1552,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        else
            disp('Unknown direction');
            return
-       end
-       toc()
+       end    
        
        
        % plot results
