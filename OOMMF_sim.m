@@ -191,7 +191,8 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
     data = fread(fid, obj.xnodes*obj.ynodes*obj.znodes*obj.dim,...
          format, 0, 'ieee-le');
     
-    if (isempty(strfind(fgetl(fid),'# End: Data')) || isempty(strfind(fgetl(fid),'# End: Segment')))
+    line = fgetl(fid); 
+    if (isempty(strfind(line ,'# End: Data')) && isempty(strfind(line,'# End: Segment')))
       disp('End of file is incorrect. Something wrong');
       fclose(fid);
       return;
@@ -582,7 +583,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
           
      % evaluate required memory and compare with available space
       % memory required for one time frame 
-     oneTimeFrameMemory = 3*8*obj.xnodes*obj.ynodes*obj.znodes;
+     oneTimeFrameMemory = 8*obj.xnodes*obj.ynodes*obj.znodes*obj.dim;
  
      mem = memory;
      availableSpace = mem.MaxPossibleArrayBytes
@@ -602,29 +603,32 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      ZHeap = zeros(heapSize,obj.xnodes,obj.ynodes,obj.znodes);
      
      indHeap = 1;
-     fileAmount = size(fList,1); 
-     for i=1:fileAmount
-         disp (i)
-         file = fList(i);
+     fileAmount = size(fList,1);
+     
+     for fInd=1:fileAmount
+         disp (fInd)
+         file = fList(fInd);
          [~, fName, ~] = fileparts(file.name);
          obj.fName = strcat(path,'\',fName);
          [XHeap(indHeap,:,:,:), YHeap(indHeap,:,:,:), ZHeap(indHeap,:,:,:)] = ...
              obj.loadMagnetisation('fileExt',params.fileExt);
                
          % write heaps to files
-         if (indHeap >= heapSize || i == fileAmount)
+         if (indHeap >= heapSize || fInd == fileAmount)
+             heapStart = (fInd-indHeap+1);
+             heapEnd = fInd;
              switch (params.value)
                  case 'M'    
                     disp('Write to file');
-                    XFile.Mx((i-indHeap+1):i,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = cast(XHeap(1:indHeap,1:end,1:end,1:end),'single');
-                    YFile.My((i-indHeap+1):i,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = cast(YHeap(1:indHeap,1:end,1:end,1:end),'single'); 
-                    ZFile.Mz((i-indHeap+1):i,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = cast(ZHeap(1:indHeap,1:end,1:end,1:end),'single');
+                    XFile.Mx(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = cast(XHeap(1:indHeap,1:end,1:end,1:end),'single');
+                    YFile.My(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = cast(YHeap(1:indHeap,1:end,1:end,1:end),'single'); 
+                    ZFile.Mz(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = cast(ZHeap(1:indHeap,1:end,1:end,1:end),'single');
                     indHeap = 1;
                  case 'H'    
                     disp('Write to file');
-                    XFile.Hx((i-indHeap+1):i,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = XHeap(1:indHeap,1:end,1:end,1:end);
-                    YFile.Hy((i-indHeap+1):i,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = YHeap(1:indHeap,1:end,1:end,1:end); 
-                    ZFile.Hz((i-indHeap+1):i,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = ZHeap(1:indHeap,1:end,1:end,1:end);
+                    XFile.Hx(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = XHeap(1:indHeap,1:end,1:end,1:end);
+                    YFile.Hy(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = YHeap(1:indHeap,1:end,1:end,1:end); 
+                    ZFile.Hz(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = ZHeap(1:indHeap,1:end,1:end,1:end);
                     indHeap = 1;
                  otherwise
                      disp('Unknpwn physical value');
@@ -787,7 +791,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                params.zRange(1):params.zRange(2));
        elseif (strcmp(params.proj,'x'))
            FFTres = MFile.Yx(freqScaleInd(1):freqScaleInd(2),params.xRange(1):params.xRange(2),...
-               params.yRange(1):params.yRange(2),...
+               params.yRange(1):params.yRange(2),...`
                params.zRange(1):params.zRange(2));   
        elseif (strcmp(params.proj,'y'))
            FFTres = MFile.Yy(freqScaleInd(1):freqScaleInd(2),params.xRange(1):params.xRange(2),...
@@ -999,7 +1003,6 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
     % plot spatial map of FFT distribution for a given frequency
     % parameters
     %       - freq is desired frequency
-   function plotFFTSliceY(obj,varargin)
        p = inputParser;
    
        p.addParamValue('freq',0,@isnumeric);
@@ -1077,7 +1080,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        if (size(fftSlice,3)>1)
            Amp = squeeze(mean(abs(fftSlice),3));
-           Phase = squeeze(mean(angle(fftSlice),3));          
+           Phase = squeeze(mean(angle(fftSlice),3));
        end   
        
        % plot amplitude map
@@ -1110,6 +1113,9 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            cblabel('rad.'); colormap(hsv);
            ylabel('X, \mum'); xlabel('Y, \mum');
            
+                     
+       % save figure
+       obj.savePlotAs(params.saveAs,gcf);   
                      
        % save figure
        obj.savePlotAs(params.saveAs,gcf);   
@@ -1298,8 +1304,8 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        p = inputParser;
        p.addRequired('folder',@isdir);
        p.addParamValue('background',true,@islogical);
-       p.addParamValue('useGPU',false,@islogical);
-       p.addParamValue('idGPU',1,@isnumeric);
+       p.addParamValue('chunk',false,@islogical);
+       
        p.parse(folder,varargin{:});
        params = p.Results;
        
@@ -1307,101 +1313,122 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        % substract backgroung
        if (params.background)
           [MxStatic,MyStatic,MzStatic] = obj.getStatic(params.folder);
-       end    
-
-
-       % process Mx projection
-       disp('Mx');
-       MFile = matfile(fullfile(folder,'Mx.mat'));
-       FFTFile = matfile(fullfile(folder,'MxFFT.mat'),'Writable',true);
-       arrSize = size(MFile,'Mx');
-       centerInd = ceil(0.5*arrSize(1));
-
-       Mx = MFile.Mx(1:arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4));
-       if (params.background)
-           disp('Substract background');
-           for timeInd = 1:arrSize(1)
-               Mx(timeInd,:,:,:) = squeeze(Mx(timeInd,:,:,:)) - MxStatic; 
-           end
        end
-
-       disp('FFT');
-       tmp = fft(Mx,[],1);
-       clear Mx MxStatic
        disp('Write');
-       if mod(arrSize(1),2)
-           FFTFile.Yx(1:floor(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),1:arrSize(4)) =...
-               tmp((ceil(0.5*arrSize(1))+1):arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4));
-           FFTFile.Yx(ceil(0.5*arrSize(1)):arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4)) =...
-               tmp(1:ceil(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),1:arrSize(4));
-       else
-           FFTFile.Yx(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4)) =...
-               tmp((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4));
-           FFTFile.Yx((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4)) =...
-               tmp(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4));
-       end
+       % initialize input and output files
+       MxFile = matfile(fullfile(folder,'Mx.mat'));
+       FFTxFile = matfile(fullfile(folder,'MxFFT.mat'),'Writable',true);
        
-       % process My projection
-       disp('My');
-       MFile = matfile(fullfile(folder,'My.mat'));
-       FFTFile = matfile(fullfile(folder,'MyFFT.mat'),'Writable',true);
+       MyFile = matfile(fullfile(folder,'My.mat'));
+       FFTyFile = matfile(fullfile(folder,'MyFFT.mat'),'Writable',true);
        
-       My = MFile.My(1:arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4));
-       if (params.background)
-           disp('Substract background');
-           for timeInd = 1:arrSize(1)
-               My(timeInd,:,:,:) = squeeze(My(timeInd,:,:,:)) - MyStatic; 
-           end
-       end
+       MzFile = matfile(fullfile(folder,'Mz.mat'));
+       FFTzFile = matfile(fullfile(folder,'MzFFT.mat'),'Writable',true);
 
        disp('FFT');
        tmp = fft(My,[],1);
        clear My MyStatic
        
- 
-       disp('Write');
-       if mod(arrSize(1),2)
-           FFTFile.Yy(1:floor(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),1:arrSize(4)) =...
-               tmp((ceil(0.5*arrSize(1))+1):arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4));
-           FFTFile.Yy(ceil(0.5*arrSize(1)):arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4)) =...
-               tmp(1:ceil(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),1:arrSize(4));
-       else
-           FFTFile.Yy(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4)) =...
-               tmp((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4));
-           FFTFile.Yy((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4)) =...
-               tmp(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4));
+       % process chunk
+       if (params.chunk)
+           zStep = 4
+           chunkAmount = arrSize(4)/zStep
+       else     
+           zStep = arrSize(4)
+           chunkAmount = 1
        end
-
        
-       % process Mz projection
-       disp('Mz');
-       MFile = matfile(fullfile(folder,'Mz.mat'));
-       FFTFile = matfile(fullfile(folder,'MzFFT.mat'),'Writable',true);
-       
-       Mz = MFile.Mz(1:arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4));
-       if (params.background)
-           disp('Substract background');
-           for timeInd = 1:arrSize(1)
-               Mz(timeInd,:,:,:) = squeeze(Mz(timeInd,:,:,:)) - MzStatic(:,:,:); 
+       for chunkInd = 1:chunkAmount
+           zStart = (chunkInd-1)*zStep+1
+           zEnd   = chunkInd*zStep
+           % process Mx projection
+           disp('Mx');
+           Mx = MxFile.Mx(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
+           if (params.background)
+               disp('Substract background');
+               for timeInd = 1:arrSize(1)
+                   Mx(timeInd,:,:,:) = ...
+                    squeeze(Mx(timeInd,:,:,:)) - MxStatic(:,:,zStart:zEnd);
+               end
            end
-       end
+           
+           disp('FFT');
+           tmp = fft(Mx,[],1);
+            
+           disp('Write');
+           if mod(arrSize(1),2)
+               FFTxFile.Yx(1:floor(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
+                   tmp((ceil(0.5*arrSize(1))+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
+               FFTxFile.Yx(ceil(0.5*arrSize(1)):arrSize(1),1:arrSize(2),1:arrSize(3),:) =...
+                   tmp(1:ceil(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),zStart:zEnd);
+           else
+               FFTxFile.Yx(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
+                   tmp((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
+               FFTxFile.Yx((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
+                   tmp(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),:);
+           end
+           
+           if true
+               % process My projection
+               disp('My');
 
-       disp('FFT');
+               My = MyFile.My(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
+               if (params.background)
+                   disp('Substract background');
+                   for timeInd = 1:arrSize(1)
+                       My(timeInd,:,:,:) = ...
+                         squeeze(My(timeInd,:,:,:)) - MyStatic(:,:,zStart:zEnd);
+                   end
+               end
 
-       tmp = fft(Mz,[],1);
-       clear Mz MzStatic
-       
-       disp('Write');
-       if mod(arrSize(1),2)
-           FFTFile.Yz(1:floor(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),1:arrSize(4)) =...
-               tmp((ceil(0.5*arrSize(1))+1):arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4));
-           FFTFile.Yz(ceil(0.5*arrSize(1)):arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4)) =...
-               tmp(1:ceil(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),1:arrSize(4));
-       else
-           FFTFile.Yz(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4)) =...
-               tmp((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4));
-           FFTFile.Yz((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4)) =...
-               tmp(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),1:arrSize(4));
+               disp('FFT');
+               tmp = fft(My,[],1);
+               clear My
+
+               disp('Write');
+               if mod(arrSize(1),2)
+                   FFTyFile.Yy(1:floor(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
+                       tmp((ceil(0.5*arrSize(1))+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
+                   FFTyFile.Yy(ceil(0.5*arrSize(1)):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
+                       tmp(1:ceil(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),:);
+               else
+                   FFTyFile.Yy(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
+                       tmp((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
+                   FFTyFile.Yy((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
+                       tmp(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),:);
+               end
+
+
+               % process Mz projection
+               disp('Mz');
+
+
+               Mz = MzFile.Mz(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
+               if (params.background)
+                   disp('Substract background');
+                   for timeInd = 1:arrSize(1)
+                       Mz(timeInd,:,:,:) = ...
+                         squeeze(Mz(timeInd,:,:,:)) - MzStatic(:,:,zStart:zEnd);
+                   end
+               end
+
+               disp('FFT');
+               tmp = fft(Mz,[],1);
+               clear Mz
+
+               disp('Write');
+               if mod(arrSize(1),2)
+                   FFTzFile.Yz(1:floor(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
+                       tmp((ceil(0.5*arrSize(1))+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
+                   FFTzFile.Yz(ceil(0.5*arrSize(1)):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
+                       tmp(1:ceil(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),:);
+               else
+                   FFTzFile.Yz(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
+                       tmp((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
+                   FFTzFile.Yz((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
+                       tmp(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),:);
+               end
+           end
        end
        disp('Write');
        FFTFile.Yz = fftshift(tmp);        
@@ -1568,15 +1595,27 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        % perform FFT along desired spatial direction
        if (strcmp(params.direction,'x'))
+           % calculate wave scale
            kScale = 2*pi*obj.getWaveScale(obj.xstepsize*1e6,arrSize(2)); 
            [~,kInd] = min(abs(kScale - params.k));
            
+           % calculate FFT along spatial direction and find required slice 
            Yts = fft(Yt,[],1);
-           Yts = fftshift(Ytx,1);     
+           Yts = fftshift(Yts,1);     
            YtsSlice = squeeze(Yts(kInd,:,:));
            
-           axis1Label = 'Y';
-           axis2Label = 'Z';
+           % axis labels
+           axis1Label = 'Y (\mum)';
+           axis2Label = 'Y (\mum)';
+           
+           % axis scale
+           axis2Scale = linspace(params.yRange(1)*obj.ystepsize,...
+                                 params.yRange(2)*obj.ystepsize,...
+                                 params.yRange(2)-params.yRange(1)+1)/1e-6;
+                             
+           axis1Scale = linspace(params.zRange(1)*obj.zstepsize,...
+                                 params.zRange(2)*obj.zstepsize,...
+                                 params.zRange(2)-params.zRange(1)+1)/1e-6;
        elseif (strcmp(params.direction,'y'))
            kScale = 2*pi*obj.getWaveScale(obj.ystepsize*1e6,arrSize(3)); 
            [~,kInd] = min(abs(kScale - params.k));
