@@ -1356,7 +1356,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        % process chunk
        if (params.chunk)
-           zStep = 4
+           zStep = 8
            chunkAmount = arrSize(4)/zStep
        else     
            zStep = arrSize(4)
@@ -1458,7 +1458,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        disp('Write');
        FFTFile.Yz = fftshift(tmp);        
    end
-   
+ 
    % plot distribution of FFT intensity of Y component of magnetisation
    % in coordinates (Yaxis - Frequency)
    % parameters:
@@ -1824,6 +1824,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      % load projection of magnetisation
      timeScaleOld = tableData(:,1); % original time scale
      timeScaleNew = linspace(timeScaleOld(1),timeScaleOld(end),size(timeScaleOld,1)).';
+     %parpool(8);
      
      % interpolate
      MFile = matfile('Mx.mat');
@@ -1931,17 +1932,22 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    % oldScale - original scale of sampling
    % newScale - new scale of sampling 
    function outArr = interpArray(obj,inpArr, oldScale, newScale)
-       outArr = zeros(size(inpArr));
-       parfor xInd = 1:size(inpArr,2)
-         for yInd = 1:size(inpArr,3)
-             for zInd = 1:size(inpArr,4)
-                 pointM = inpArr(:,xInd,yInd,zInd);
-                 %outArr(:,xInd,yInd,zInd) = ...
-                   k =  cast(interp1(oldScale,pointM,newScale),'single');
-             end
-         end
-      end    
-   end 
+       Sz = size(inpArr);
+       outArr = zeros(Sz);
+       tmp = zeros(Sz(1),Sz(2));
+
+       reshapeArr = permute(inpArr,[4 3 2 1]);
+       for xInd = 1:size(reshapeArr,1)
+           for yInd = 1:size(reshapeArr,2)
+               disp([num2str(xInd) ' '  num2str(yInd)]);
+               parfor zInd = 1:size(reshapeArr,3)
+                   tmp(:,zInd) =  cast(interp1(oldScale,...
+                       squeeze(reshapeArr(xInd,yInd,zInd,:)),newScale),'single');
+               end
+               outArr(:,:,yInd,xInd) = tmp;
+           end
+       end
+   end   
    
    function outArr = interpArrayPar(obj,inpArr, oldScale, newScale)
        Sz = size(inpArr);
