@@ -753,6 +753,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        p.addParamValue('direction','X',@(x)any(strcmp(x,obj.availableProjs)));
        p.addParamValue('scale','log',@(x) any(strcmp(x,{'log','norm'})));
        p.addParamValue('normalize',true,@islogical);
+       p.addParamValue('windowFunc',false,@islogical);
        
        % process incomming parameters
        p.parse(varargin{:});
@@ -804,13 +805,34 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        else
            disp('Unknown projection');
            return
-       end    
-
+       end
+       
        waveVectorScale = 2*pi*obj.getWaveScale(obj.xstepsize/1e-6,mSize(2));
        [~,waveVectorInd(1)] = min(abs(waveVectorScale-params.waveLimit(1)));
        [~,waveVectorInd(2)] = min(abs(waveVectorScale-params.waveLimit(2)));
        waveVectorScale = waveVectorScale(waveVectorInd(1):waveVectorInd(2));       
-              
+       
+       % apply window function
+       if params.windowFunc
+           repSize = size(FFTres);
+           
+           if (strcmp(params.direction,'x'))
+               windVec = hanning(repSize(2));
+               windVec = permute(windVec,[4 1 2 3]);
+               repSize(2) = 1;
+               windArr = repmat(windVec,repSize);
+               FFTres = FFTres.*windArr;
+
+           elseif (strcmp(params.direction,'y'))
+               windSize = repSize(3);
+               repSize(3) = 1; 
+           elseif (strcmp(params.direction,'z'))
+               windSize = repSize(4);
+               repSize(4) = 1; 
+           end
+           
+       end    
+       
        if (strcmp(params.direction,'x'))           
            Y(:,:,:,:) = fft(FFTres,[],2);
            clearvars FFTres;
@@ -1000,10 +1022,13 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        obj.savePlotAs(params.saveAs,gcf);
    end 
    
+   
     % plot spatial map of FFT distribution for a given frequency
     % parameters
     %       - freq is desired frequency
-       p = inputParser;
+      % plot spatial map of FFT distribution for a given frequency
+   function plotFFTSliceY(obj,varargin)
+    p = inputParser;
    
        p.addParamValue('freq',0,@isnumeric);
        p.addParamValue('ySlice',3,@isnumeric);
@@ -1534,6 +1559,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        params.proj = lower(params.proj);
        params.direction = lower(params.direction);
        
+       % process ranges
        if isempty(params.xRange)
            params.xRange = [1 obj.xnodes];
        end
@@ -1606,7 +1632,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            
            % axis labels
            axis1Label = 'Y (\mum)';
-           axis2Label = 'Y (\mum)';
+           axis2Label = 'Z (\mum)';
            
            % axis scale
            axis2Scale = linspace(params.yRange(1)*obj.ystepsize,...
@@ -1677,25 +1703,25 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            cblabel('rad.');
            colormap(hsv);
            
-       fig2 = figure(3);
-           subplot(211); plot(axis2Scale,mean(Amp,1));
-           title(['\nu = ',num2str(params.freq),' GHz, k = ',num2str(params.k),...
-               '\mum, M_',params.proj,' projection'],'FontSize',14,'FontName','Times');
-           xlabel(axis1Label); ylabel('Amplitude (arb. u.)')
+      %fig2 = figure(3);
+      %     subplot(211); plot(axis2Scale,mean(Amp,1));
+      %     title(['\nu = ',num2str(params.freq),' GHz, k = ',num2str(params.k),...
+      %         '\mum, M_',params.proj,' projection'],'FontSize',14,'FontName','Times');
+      %     xlabel(axis1Label); ylabel('Amplitude (arb. u.)')
       
-           phasePlot = mean(Phase,1);
-           phasePlot(find(phasePlot<0)) = phasePlot(find(phasePlot<0))+2*pi;
+      %     phasePlot = mean(Phase,1);
+      %     phasePlot(find(phasePlot<0)) = phasePlot(find(phasePlot<0))+2*pi;
            
-           subplot(212); plot(axis2Scale,phasePlot);
-                xlabel(axis1Label); ylabel('Phase (rad)')
+      %     subplot(212); plot(axis2Scale,phasePlot);
+      %          xlabel(axis1Label); ylabel('Phase (rad)')
       
        % save img
        if (~strcmp(params.saveAs,''))
            fName = strcat(params.saveAs,'_f',num2str(params.freq),'GHz_k',...
                num2str(params.k),'mum_M',params.proj);
            
-           obj.savePlotAs(strcat(fName,'-image'),fig2);
-           obj.savePlotAs(strcat(fName,'-slice'),fig3);
+           obj.savePlotAs(strcat(fName,'-image'),fig1);
+           %obj.savePlotAs(strcat(fName,'-slice'),fig3);
        end    
        
   end
@@ -1800,17 +1826,17 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      timeScaleNew = linspace(timeScaleOld(1),timeScaleOld(end),size(timeScaleOld,1)).';
      
      % interpolate
-   %  MFile = matfile('Mx.mat');
-   %  OutMFile = matfile('MxInterp.mat');
-   %  OutMFile.Mx = obj.interpArray(MFile.Mx, timeScaleOld, timeScaleNew)
+     MFile = matfile('Mx.mat');
+     OutMFile = matfile('MxInterp.mat');
+     OutMFile.Mx = obj.interpArray(MFile.Mx, timeScaleOld, timeScaleNew)
      
-   %  MFile = matfile('My.mat');
-   %  OutMFile = matfile('MyInterp.mat');
-   %  OutMFile.My = obj.interpArray(MFile.My, timeScaleOld, timeScaleNew)
+     MFile = matfile('My.mat');
+     OutMFile = matfile('MyInterp.mat');
+     OutMFile.My = obj.interpArray(MFile.My, timeScaleOld, timeScaleNew)
      
      MFile = matfile('Mz.mat');
      OutMFile = matfile('MzInterp.mat');
-     OutMFile.Mz = obj.interpArray(MFile.Mz, timeScaleOld, timeScaleNew)   
+     OutMFile.Mz = obj.interpArrayPar(MFile.Mz, timeScaleOld, timeScaleNew)   
    end    
    
    % END OF PUBLIC METHODS
@@ -1905,16 +1931,28 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    % oldScale - original scale of sampling
    % newScale - new scale of sampling 
    function outArr = interpArray(obj,inpArr, oldScale, newScale)
-       for xInd = 1:size(inpArr,2)
+       outArr = zeros(size(inpArr));
+       parfor xInd = 1:size(inpArr,2)
          for yInd = 1:size(inpArr,3)
              for zInd = 1:size(inpArr,4)
                  pointM = inpArr(:,xInd,yInd,zInd);
-                 outArr(:,xInd,yInd,zInd) = ...
-                     cast(interp1(oldScale,pointM,newScale),'single');
+                 %outArr(:,xInd,yInd,zInd) = ...
+                   k =  cast(interp1(oldScale,pointM,newScale),'single');
              end
          end
       end    
    end 
+   
+   function outArr = interpArrayPar(obj,inpArr, oldScale, newScale)
+       Sz = size(inpArr);
+       reshapeArr = permute(reshape(inpArr,[Sz(1) Sz(2)*Sz(3)*Sz(4)]),[2 1]);
+       outArr = zeros(size(reshapeArr));
+       parfor spatialInd = 1:size(reshapeArr,1)
+           outArr(spatialInd,:) =  cast(interp1(oldScale,reshapeArr(spatialInd,:),newScale),'single');
+       end
+       outArr = permute(outArr, [2 1]);
+       outArr = reshape(outArr,[Sz(1) Sz(2) Sz(3) Sz(4)]);
+   end
    
    % save current plot 
    function savePlotAs(obj,fName,handle)
