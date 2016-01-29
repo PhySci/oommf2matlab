@@ -54,7 +54,6 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    end
    
    % Load only parameters from file
-   
    function loadParams(obj,varargin)
        %% open file and check errors
      p = inputParser;
@@ -195,7 +194,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
     if (isempty(strfind(line ,'# End: Data')) && isempty(strfind(line,'# End: Segment')))
       disp('End of file is incorrect. Something wrong');
       fclose(fid);
-      return;
+     % return;
     else    
       fclose(fid);
     end
@@ -350,24 +349,53 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    
    % plot vector plot of magnetisation in XY plane
    % z is number of plane
-   function plotMSurfXZ(obj,slice,proj,varargin)
-     p = inputParser;
-     p.addRequired('slice',@isnumeric);
-     p.addRequired('proj',@ischar);
-     
-     p.addParamValue('saveImg',false,@islogical);
-     p.addParamValue('saveImgPath','');
-     p.addParamValue('colourRange',0,@isnumerical);
-     p.addParamValue('showScale',true,@islogical);
-     p.addParamValue('xrange',0,@isnumerical);
-     p.addParamValue('yrange',0,@isnumerical);
-     
-     p.parse(slice,proj,varargin{:});
-     params = p.Results;
+   function plotMSurfXZ(obj,varargin)
        
-     handler = obj.abstractPlot('Y',params.slice,params.proj,...
-         'saveImg',params.saveImg,'saveImgPath',params.saveImgPath,...
-         'colourRange',params.colourRange,'showScale',params.showScale);                  
+       % parse input values and parameters
+       p = inputParser;
+       p.addParamValue('slice',1,@isnumeric);
+       p.addParamValue('proj','Y',@(x)any(strcmp(x,obj.availableProjs)));
+       p.addParamValue('saveAs','',@isstr);
+       p.addParamValue('colourRange',0,@isnumerical);
+       p.addParamValue('showScale',true,@islogical);
+       p.addParamValue('xrange',0,@isnumerical);
+       p.addParamValue('yrange',0,@isnumerical);
+       
+       p.parse(varargin{:});
+       params = p.Results;
+       
+       params.proj = lower(params.proj);
+       
+       % select desired projection of magnetization
+       switch params.proj
+           case 'x'
+               projID = 1;
+           case 'y'
+               projID = 2;
+           case 'z'
+               projID = 3;
+           otherwise
+               disp('Unknown projection');
+               return;
+       end
+       M = squeeze(obj.M(:,params.slice,:,projID));
+       
+       % calculate spatial scales
+       
+       xScale = linspace(obj.xmin,obj.xmax,obj.xnodes)/1e-6;
+       yScale = linspace(obj.ymin,obj.ymax,obj.ynodes)/1e-6;
+       
+
+       imagesc(xScale,yScale,M);
+       axis xy
+           xlabel('X, \mum','FontSize',14,'FontName','Times');
+           ylabel('Z, \mum','FontSize',14,'FontName','Times');
+           colorbar
+
+       
+       %handler = obj.abstractPlot('Y',params.slice,params.proj,...
+       %    'saveImg',params.saveImg,'saveImgPath',params.saveImgPath,...
+       %    'colourRange',params.colourRange,'showScale',params.showScale);
    end
    
    % plot vector plot of magnetisation in XZ plane
@@ -719,12 +747,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
       return;
    end    
    end
- 
-   
-   function res = getVolume(obj,xrange,yrange,zrange,proj)
-     res = obj.Mraw(xrange,yrange,zrange,obj.getIndex(proj));  
-   end 
-   
+    
    % plot dispersion curve along X axis
    % params:
    %  - xRange is range of selected cells along X axis
@@ -1138,9 +1161,6 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            cblabel('rad.'); colormap(hsv);
            ylabel('X, \mum'); xlabel('Y, \mum');
            
-                     
-       % save figure
-       obj.savePlotAs(params.saveAs,gcf);   
                      
        % save figure
        obj.savePlotAs(params.saveAs,gcf);   

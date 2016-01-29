@@ -9,43 +9,37 @@ function processODS()
   
   res = readDataFile(fullName).';
   readParamsFile(fullName);
+ 
+  Ch1 = res(:,4);
+  Ch2 = res(:,5);
   
   % convert X scale from distance to time
   time = 2*(res(:,1) - min(res(:,1)))/3e2; % m
-  dT = mean(diff(time)); 
+  dT = abs(mean(diff(time))); 
   freq = linspace(-0.5/dT,0.5/dT,size(time,1)).';
    
-  linFit = fit(time,res(:,2),'poly1');
-  background = linFit.p1*time + linFit.p2;
-  
-  
-  AI7correct = res(:,2) - background;
-  Y = fftshift(abs(fft(AI7correct)));
+  Spec = fftshift(abs(fft(Ch1+i*Ch2)));
  
- figure(1);
-     plot(time,AI7correct,'-r');
-     xlim([time(1) time(end)]);
-     title(fName); xlabel('Delay, ns.'); ylabel('Signal, V');
-
- [pathstr,fName,ext] = fileparts(fName); 
- h2 = figure(2);   
-    subplot(211);
-      plot(time,AI7correct,'-r');
-      xlim([time(1) time(end)]);
+  h1 = figure(1);
+  subplot(211);
+      plot(time,Ch1,'-r',time,Ch2,'-g');
+      xlim([min(time) max(time)]);
       title(fName); xlabel('Delay, ns.'); ylabel('Signal, V');
-      set(gca, 'Position', [0.05 0.59 0.92 0.36]);
-    subplot(212);
-      plot(freq, Y); title('FFT');
-      xlim([0 20]); xlabel('Freq, GHz');
+
+      [pathstr,fName,ext] = fileparts(fName); 
+ 
+  subplot(212);
+      plot(freq, Spec); title('FFT');
+      xlim([0 50]); xlabel('Freq, GHz');
       ylabel('FFT intensity');
-      set(gca, 'Position', [0.05 0.08 0.92 0.36]);     
+      %set(gca, 'Position', [0.05 0.08 0.92 0.36]);     
  % copy data to clipboard
- num2clip([freq(find(freq>=0)) Y(find(freq>=0))]);
+ %num2clip([freq(find(freq>=0)) Y(find(freq>=0))]);
  %num2clip([time AI7correct]);
  
  %save
- savefig(h2,strcat(fName,'.fig'));
- print(gcf,'-dpng',strcat(fName,'.png'));
+ %savefig(h2,strcat(fName,'.fig'));
+ %print(gcf,'-dpng',strcat(fName,'.png'));
  
  
 end
