@@ -12,6 +12,21 @@ classdef KERR_img < hgsetget
         yStop = 10 % mkm
         ref  % array of reflectivity
         kerr % array of Kerr data
+        
+        % monitors' values
+        Monitor1 = []
+        Monitor2 = []
+        
+        % reflectivities' values
+        Reflect1 = []
+        Reflect2 = []
+        
+        % Kerr rotation values
+        Kerr1 = []
+        Kerr2 = []
+        
+        % file suffixes
+        
     end
     
     methods
@@ -20,6 +35,25 @@ classdef KERR_img < hgsetget
             disp('KERR_img object was created');
         end
         
+        % choose the file, processing of the file name
+        function open(obj)
+            [fName,fPath,~] = uigetfile({'*.txt'});
+            
+            % try to parse the file name using regular expression
+            expr = '^([\w-]+)-(m1|m2|c1l1|c2l1|c1l2|c2l2|p|sig)(.txt)';
+            [~, ~, ~, ~, tokenStr, ~, splitStr] = regexp(fName,expr);
+            if (size(tokenStr,1)>0)
+                if (size(tokenStr{1,1},2)>1)
+                    % seek properties
+                    toks = tokenStr{1,1};
+                    obj.fName = toks{1};
+                end
+            end
+            
+            obj.loadFile();
+            obj.plotMonitors();
+        end    
+            
         % load data from files
         function loadFile(obj, varargin)
             
@@ -33,7 +67,7 @@ classdef KERR_img < hgsetget
             %%%%%%%%%%%%%%%%%%%%%%%%%% 
             %  Read  params  file    %
             %%%%%%%%%%%%%%%%%%%%%%%%%%
-            pFileName = strcat(obj.fName,'-i.txt');          
+            pFileName = strcat(obj.fName,'-p.txt');          
             [pFileId,errMsg] = fopen(pFileName); % reflectivity file name
             if (pFileId <0)
                 disp('Reading of parameters');
@@ -66,37 +100,20 @@ classdef KERR_img < hgsetget
             %%%%%%%%%%%%%%%%%%%%%%%%%% 
             % Read reflectivity file %
             %%%%%%%%%%%%%%%%%%%%%%%%%%
-            rFileName = strcat(obj.fName,'-r.txt'); 
-            [rFileId,errMsg] = fopen(rFileName); % reflectivity file name
-            if (rFileId <0)
-                disp('Load reflectivity');
-                disp(errMsg);
-                return
-            end
-            
-            A = fscanf(rFileId,'%f');
-            fclose(rFileId);
-            obj.ref = reshape(A,obj.xNodes,obj.yNodes);
-            disp('Reflectivity file was upload');
-            
+
             
             %%%%%%%%%%%%%%%%%%%%%%%%%% 
             % Read Kerr file         %
             %%%%%%%%%%%%%%%%%%%%%%%%%%
-            kFileName = strcat(obj.fName,'-k.txt'); 
-            [kFileId,errMsg] = fopen(kFileName); % reflectivity file name
             
-            if (kFileId <0)
-                disp('Load Kerr image');
-                disp('No Kerr image was found');
-            else          
-                A = fscanf(kFileId,'%f');
-                fclose(kFileId);
-                obj.kerr = reshape(A,obj.xNodes,obj.yNodes);
-                disp('Kerr file was upload');
-            end    
-            
-            
+            %%%%%%%%%%%%%%%%%%%%%%%%%%
+            % Read monitor files     %
+            %%%%%%%%%%%%%%%%%%%%%%%%%%
+            m1FileName = strcat(obj.fName,'-m1.txt');
+            m2FileName = strcat(obj.fName,'-m2.txt');
+
+            obj.Monitor1 = obj.readFile(m1FileName);
+            obj.Monitor2 = obj.readFile(m2FileName);
         end    
         
         % plot reflectivity image
@@ -127,6 +144,23 @@ classdef KERR_img < hgsetget
             title(strcat('Kerr rotation ',obj.fName));
         end
         
+        function plotMonitors(obj)
+            xScale = obj.getXScale();
+            yScale = obj.getYScale();
+            
+            Signal = sqrt(obj.Monitor1.^2+obj.Monitor2.^2);
+            fg1 = figure(1);
+            imagesc(xScale,yScale,Signal);
+            axis xy; axis equal
+            xlabel('X (\mum)','FontSize',14,'FontName','Times');
+            ylabel('Y (\mum)','FontSize',14,'FontName','Times');
+            axis xy equal;
+            xlim([min(xScale) max(xScale)]);
+            ylim([min(yScale) max(yScale)]);
+            colormap(copper)
+            print(fg1,'-dpng','-r600',strcat(obj.fName,'-m.png'));
+        end    
+        
         function res = getXScale(obj)
            res = linspace(obj.xStart,obj.xStop,obj.xNodes);  
         end
@@ -137,6 +171,24 @@ classdef KERR_img < hgsetget
          
     end
     
-    
+    methods (Access = protected)
+        
+        function res = readFile(obj,fName)
+            res = [];
+            try
+                fid = fopen(fName);
+                if (fid < 0)
+                    disp('File not found');
+                    return
+                end    
+                while ~feof(fid)
+                    res =[res sscanf(fgetl(fid),'%f')];
+                end
+                fclose(fid);
+            catch Err
+                disp(Err);
+            end
+        end
+    end    
 end
 

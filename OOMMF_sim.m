@@ -386,8 +386,8 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        yScale = linspace(obj.ymin,obj.ymax,obj.ynodes)/1e-6;
        
 
-       imagesc(xScale,yScale,M);
-       axis xy
+       imagesc(xScale,yScale,M.');
+       axis xy;
            xlabel('X, \mum','FontSize',14,'FontName','Times');
            ylabel('Z, \mum','FontSize',14,'FontName','Times');
            colorbar
@@ -648,14 +648,14 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
              switch (params.value)
                  case 'M'    
                     disp('Write to file');
-                    XFile.Mx(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = cast(XHeap(1:indHeap,1:end,1:end,1:end),'single');
-                    YFile.My(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = cast(YHeap(1:indHeap,1:end,1:end,1:end),'single'); 
+                    %XFile.Mx(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = cast(XHeap(1:indHeap,1:end,1:end,1:end),'single');
+                    %YFile.My(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = cast(YHeap(1:indHeap,1:end,1:end,1:end),'single'); 
                     ZFile.Mz(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = cast(ZHeap(1:indHeap,1:end,1:end,1:end),'single');
                     indHeap = 1;
                  case 'H'    
                     disp('Write to file');
-                    XFile.Hx(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = XHeap(1:indHeap,1:end,1:end,1:end);
-                    YFile.Hy(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = YHeap(1:indHeap,1:end,1:end,1:end); 
+                    %XFile.Hx(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = XHeap(1:indHeap,1:end,1:end,1:end);
+                    %YFile.Hy(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = YHeap(1:indHeap,1:end,1:end,1:end); 
                     ZFile.Hz(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = ZHeap(1:indHeap,1:end,1:end,1:end);
                     indHeap = 1;
                  otherwise
@@ -952,7 +952,14 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        end
    end
       
-   % plot spatial map of FFT distribution for a given frequency
+   % Plot spatial map of FFT distribution for a given frequency
+   % params:
+   %  - freq is desired frequency of FFT
+   %  - zSlice is desired Z slice of FFT
+   %  - xRange & yRange are ranges of X and Y coordinates
+   %  - scale is scale of plots (norm, log)
+   %  - rotate is bool valus allows  rotating of images
+   %  - saveAs is name of output *.png and *.fig files  
    function plotFFTSliceZ(obj,varargin)
        
        p = inputParser;
@@ -962,12 +969,13 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        p.addParamValue('yRange',0,@isnumeric);
        p.addParamValue('scale','log', @(x) any(strcmp(x,{'norm','log'})));
        p.addParamValue('saveAs','',@isstr);
+       p.addParamValue('rotate',false,@islogical);
        
        p.parse(varargin{:});
        params = p.Results;
               
        % load parameters
-       simParams = obj.getSimParams;
+       obj.getSimParams;
        
        % assign file of FFT of Mz
        MzFFTFile = matfile(fullfile(obj.folder,'MzFFT.mat'));
@@ -985,13 +993,13 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        end    
               
        % calculate scales
-       xScale = linspace(simParams.xmin,simParams.xmax,simParams.xnodes)/1e-6;
+       xScale = linspace(obj.xmin,obj.xmax,obj.xnodes)/1e-6;
        xScale = xScale(params.xRange(1):params.xRange(2));  
 
-       yScale=linspace(simParams.ymin,simParams.ymax,simParams.ynodes)/1e-6;
+       yScale=linspace(obj.ymin,obj.ymax,obj.ynodes)/1e-6;
        yScale = yScale(params.yRange(1):params.yRange(2));  
        
-       freqScale = getWaveScale(simParams.dt,MzFFTSize(1))/1e9;
+       freqScale = obj.getWaveScale(obj.dt,MzFFTSize(1))/1e9;
        shiftFreqScale = ifftshift(freqScale);
        [~,freqInd] = min(abs(shiftFreqScale-params.freq));
        
@@ -1003,44 +1011,60 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        end
        
        fftSlice = squeeze(fftSlice);
-       Amp = abs(fftSlice);
-       Phase = angle(fftSlice);
+       if params.rotate
+           Amp = abs(fftSlice).';
+           Phase = angle(fftSlice).';
+           xLabelStr = 'X, \mum';
+           yLabelStr = 'Y, \mum';
+           
+           % exchange of axis labels
+           tmp = yScale;
+           yScale = xScale;
+           xScale  = tmp;
+           
+       else
+           Amp = abs(fftSlice);
+           Phase = angle(fftSlice);
+           xLabelStr = 'Y, \mum';
+           yLabelStr = 'X, \mum';
+       end    
 
        % plot amplitude map
-       figure(1);
+       fg = figure(1);
        subplot(2,1,1);
+           ref = min(Amp(find(Amp(:))));
+
            if strcmp(params.scale,'log')
-               ref = min(Amp(find(Amp(:))));
                if (isempty(ref))
                    ref = 1;
                end    
-               imagesc(xScale,yScale,log10(Amp.'/ref));
+               imagesc(yScale,xScale,log10(Amp/ref));
                hcb =colorbar('EastOutside');
                cbunits('dB');
            else
-               imagesc(xScale,yScale,log10(Amp.'));
+               imagesc(yScale,xScale,Amp,[0 1.05*max(Amp(:))]);
                hcb = colorbar('EastOutside');
                cbunits('a.u.');
            end    
-           title('Amplitude of FFT');
-           axis xy;
-           ylabel('Y, \mum'); xlabel('X, \mum');
-           colormap(jet);
-           freezeColors;
-           cbfreeze;
-           
+           title(['Amplitude of FFT, \nu=' num2str(params.freq) 'GHz, slice ' num2str(params.zSlice)]);
+           axis xy equal; colormap(flipud(gray));
+           xlabel(xLabelStr); ylabel(yLabelStr);
+           freezeColors; cbfreeze;
+           xlim([min(yScale) max(yScale)]);
+           ylim([min(xScale) max(xScale)]);
+
 
        % plot phase map   
        subplot(2,1,2);
-
-          imagesc(xScale,yScale,Phase.',[-pi pi]);
-          title('Phase of FFT');
-          axis xy;
-          colorbar('EastOutside');
-          cblabel('rad.');
-          ylabel('Y, \mum'); xlabel('X, \mum');
-          colormap(hsv);  
+           imagesc(yScale,xScale,Phase,[-pi pi]);
+           title('Phase of FFT');
+           axis xy equal; colormap(hsv);
+           colorbar('EastOutside'); cblabel('rad.');
+           xlabel(xLabelStr); ylabel(yLabelStr);
+           xlim([min(yScale) max(yScale)]);
+           ylim([min(xScale) max(xScale)]);
           
+       
        % save figure
        obj.savePlotAs(params.saveAs,gcf);
    end 

@@ -68,8 +68,8 @@ classdef Kerr_ODS < hgsetget
         
         % calculate FFT spectra of the signal
         function makeFFT(obj,windFunc)
-            windArr = hamming(size(obj.Chanel1,1));
-            %windArr = rectwin(size(obj.Chanel1,1));
+            %windArr = hamming(size(obj.Chanel1,1));
+            windArr = rectwin(size(obj.Chanel1,1));
             
             signal = windArr.*(obj.Chanel1+i*obj.Chanel2); 
             obj.FFTspec = fftshift(abs(fft(signal)));
@@ -103,26 +103,31 @@ classdef Kerr_ODS < hgsetget
         end 
         
         % plot signal and FFT spectra
-        function plot(obj)
+        function plot(obj,varargin)
+            
+            p = inputParser();
+            p.addParamValue('saveAs','',@isstring);
+            p.parse(varargin{:});
+            params = p.Results;
+
             hf = figure();
             subplot(211);
                 plot(obj.timeScale,obj.Chanel1,'-r',obj.timeScale,obj.Chanel2,'-b');
                 xlim([min(obj.timeScale) max(obj.timeScale)]);
                 title(obj.fName);
-                xlabel('Delay (ns)','FontSize',14,'FontName','Times');
+                xlabel('Delay (ns)','FontSize',14,  'FontName','Times');
                 ylabel('Signal (V)','FontSize',14,'FontName','Times');
                 legend('Chanel 1','Chanel 2');
                 
             subplot(212);
                 plot(obj.freqScale, obj.FFTspec); title('FFT');
-                xlim([0 40]); xlabel('Frequency (GHz)','FontSize',14,'FontName','Times');
+                xlim([0 20]); xlabel('Frequency (GHz)','FontSize',14,'FontName','Times');
                 ylabel('FFT intensity (arb. units)','FontSize',14,'FontName','Times');
                 
             [pathstr,fName,ext] = fileparts(obj.fName);
             savefig(hf,strcat(fName,'.fig'));
-            print(hf,'-dpng',strcat(fName,'.png'));
-        end    
-            
+            print(hf,'-dpng','-r600',strcat(fName,'.png'));
+        end     
     end
     
     methods (Access = protected)
@@ -171,7 +176,7 @@ classdef Kerr_ODS < hgsetget
           end
           fclose(fid);
         end
-      
+        
     end  
     
 end
