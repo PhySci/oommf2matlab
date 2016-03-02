@@ -18,7 +18,8 @@ classdef Kerr_ODS < hgsetget
         freqScale = 0;
         lengthScale = 0;
         timeScale = 0;
-        
+        position = [0 0 0];
+        waitTime = 0; 
     end
     
     properties (Access = protected)
@@ -34,36 +35,44 @@ classdef Kerr_ODS < hgsetget
         % open new file file
         function open(obj)
             obj.fName = '';
-            obj.load();
-            obj.makeFFT();
-            obj.plot();
+            if obj.load() 
+                obj.makeFFT();
+                obj.plot();
+            end
         end
         
         % load file
-        function load(obj)
+        function suc = load(obj)
            if isempty(obj.fName)   
-              [fName,fPath,~] = uigetfile({'*.txt'});
+              [fName,fPath,~] = uigetfile({'*.h5';'*.txt'});
               if (fName == 0)
+                  suc = false;
                   return
               end
+              suc = true;
               fullName = fullfile(fPath,fName);
               obj.fName = fullName;
+           end
+          
+          [~,~,ext] = fileparts(fName); 
+
+          if strcmp(ext,'.txt')
+              res = obj.readDataFile().';
+              %readParamsFile(fullName);
+          elseif strcmp(ext,'.h5')
+              %h5disp(obj.fName);
+              obj.position = h5readatt(obj.fName,'/','Position');
+              obj.waitTime = h5readatt(obj.fName,'/','time_wait_(ms) ');
+              res = h5read(obj.fName,'/Signal').';
           end
 
-
-          res = obj.readDataFile().';
-          %readParamsFile(fullName);
-
+          obj.lengthScale = res(:,1);
           obj.Chanel1 = res(:,4);
           obj.Chanel2 = res(:,5);
           obj.Monitor1 = res(:,2);
           obj.Monitor2 = res(:,3);
           
-
-          % convert X scale from distance to time
-          obj.timeScale = 2*(res(:,1) - min(res(:,1)))/3e2; % m
-          obj.dt = abs(mean(diff(obj.timeScale))); 
-          obj.freqScale = linspace(-0.5/obj.dt,0.5/obj.dt,size(obj.timeScale,1)).';          
+          obj.calcFreqScale();         
         end    
         
         % calculate FFT spectra of the signal
@@ -115,19 +124,32 @@ classdef Kerr_ODS < hgsetget
                 plot(obj.timeScale,obj.Chanel1,'-r',obj.timeScale,obj.Chanel2,'-b');
                 xlim([min(obj.timeScale) max(obj.timeScale)]);
                 title(obj.fName);
-                xlabel('Delay (ns)','FontSize',14,  'FontName','Times');
+                xlabel('Delay (ns)','FontSize',14,'FontName','Times');
                 ylabel('Signal (V)','FontSize',14,'FontName','Times');
                 legend('Chanel 1','Chanel 2');
                 
             subplot(212);
-                plot(obj.freqScale, obj.FFTspec); title('FFT');
-                xlim([0 20]); xlabel('Frequency (GHz)','FontSize',14,'FontName','Times');
+                semilogy(obj.freqScale, obj.FFTspec); title('FFT');
+                %xlim([0 20]);
+                xlabel('Frequency (GHz)','FontSize',14,'FontName','Times');
                 ylabel('FFT intensity (arb. units)','FontSize',14,'FontName','Times');
                 
             [pathstr,fName,ext] = fileparts(obj.fName);
-            savefig(hf,strcat(fName,'.fig'));
-            print(hf,'-dpng','-r600',strcat(fName,'.png'));
-        end     
+            savefig(hf,strcat(fName,'-hamming.fig'));
+            print(hf,'-dpng','-r600',strcat(fName,'-hamming.png'));
+        end 
+        
+        function sinFit(obj,varargin)
+            sinFunc  = @(b,x) (b(1)*sin(b(4)+2*pi*x/b(3))+b(2));
+            fitRes = nlinfit(obj.lengthScale,obj.Chanel1,sinFunc,[1, 1,80,0.1]); %,...
+            amp1 = fitRes(1);
+            bias1 = fitRes(2);
+            period1 = fitRes(3);
+            shift1 = fitRes(4);
+            yFit = amp1*sin(shift1+2*pi*obj.lengthScale/period1)+bias1;
+            plot(obj.lengthScale,obj.Chanel1,'xr',obj.lengthScale,yFit,'-g')
+        end    
+        
     end
     
     methods (Access = protected)
@@ -175,6 +197,12 @@ classdef Kerr_ODS < hgsetget
             disp(fgetl(fid));  
           end
           fclose(fid);
+        end
+        
+        function calcFreqScale(obj)
+            obj.timeScale = 2*(obj.lengthScale - min(obj.lengthScale))/3e2; % m
+            obj.dt = abs(mean(diff(obj.timeScale)));
+            obj.freqScale = linspace(-0.5/obj.dt,0.5/obj.dt,size(obj.timeScale,1)).';
         end
         
     end  

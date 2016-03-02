@@ -26,14 +26,13 @@ function processMuMaxTable
     % interpolation of time dependences
     timeScale = linspace(min(time),max(time),size(time,1)).';
     Mx = interp1(time,double(rawMx),timeScale);
-    My = interp1(time,double(rawMy),timeScale);
     Mz = interp1(time,double(rawMz),timeScale);
     
     %dt = mean(diff(time))
     dt = (max(time)-min(time))/size(time,1);
     freqScale = linspace(-0.5/dt,0.5/dt,size(time,1))/1e9;
-    winFunc = hamming(size(time,1));
-    %winFunc = rectwin(size(time,1));
+    %winFunc = hamming(size(time,1));
+    winFunc = rectwin(size(time,1));
     
     SpecX = fftshift(abs(fft(Mx.*winFunc)));
     SpecZ = fftshift(abs(fft(Mz.*winFunc)));
@@ -47,18 +46,22 @@ function processMuMaxTable
             
    fg2 = figure(2);
         %semilogy(freqScale,[SpecX SpecZ]);
-        plot(freqScale,SpecX,'-bx',freqScale,SpecZ,'-rx');
-        xlim([0 6]);
-        legend('Mx','Mz');
+        plot(freqScale,SpecZ,'-rx');
+        xlim([0 8]);
+        legend('Mz');
         xlabel('Frequency (GHz)','FontSize',14,'FontName','Times');
         ylabel('Spectral density (arb. units)','FontSize',14,'FontName','Times');
-        print(fg2,'-dpng','-r600','specs.png');
-        savefig(fg2,'specs.fig');
-        
-   %fg3 = figure(3);
-   %     subplot(311); plot(time/1e-9,Bx,'-r'); 
-   %     subplot(312); plot(time/1e-9,By,'-g'); ylim([0.05 0.06]);
-   %     subplot(313); plot(time/1e-9,Bz,'-b'); 
+        print(fg2,'-dpng','-r600','specsMz.png');
+        savefig(fg2,'specsMz.fig');
    
+   fg3 = figure(3);
+        plot(freqScale,SpecX,'-rx');
+        xlim([0.1 8]);
+        legend('Mx');
+        xlabel('Frequency (GHz)','FontSize',14,'FontName','Times');
+        ylabel('Spectral density (arb. units)','FontSize',14,'FontName','Times');
+        print(fg3,'-dpng','-r600','specsMx.png');
+        savefig(fg3,'specsMx.fig');     
+           
 end
 

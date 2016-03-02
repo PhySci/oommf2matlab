@@ -20,9 +20,9 @@ classdef fieldGen < hgsetget
         ynodes = 8
         znodes = 32
         
-        xstepsize = 1.5e-06
-        ystepsize = 2.5e-07
-        zstepsize = 2.5e-07
+        xstepsize = 1e-06
+        ystepsize = 0.25e-06
+        zstepsize = 0.25e-06
         fName = 'testGieldGen.ovf'
         
         % position of the strip line (in cells)
@@ -54,28 +54,28 @@ classdef fieldGen < hgsetget
         end    
         
         function calcMagneticField(obj)
-            I = 4e-6;
-            c = 1;
+            I = 1;
             
             obj.dataArr = zeros(obj.xnodes,obj.ynodes,obj.znodes,obj.valuedim);
             for xInd = 1:obj.xnodes
                 dx = (xInd - obj.xPos)*obj.xstepsize;
                 for zInd = 1:obj.znodes
                     dz = (zInd - obj.zPos)*obj.zstepsize;
-                    c = 4*pi/1e7;
-                    I = 1e2;
-                    obj.dataArr(xInd,:,zInd,3) = c*I*log(((0.5*obj.w-dx)^2+dz^2)/(0.5*obj.w+dx)^2+dz^2)/(2*pi);
-                    obj.dataArr(xInd,:,zInd,1) = c*I*(atan((obj.w+2*dx)/(2*dz))+atan((obj.w-2*dx)/(2*dz)))/pi;
+                    c = 1;%pi/1e7;
+                    Hx = c*I*(atan((obj.w+2*dx)/(2*dz))+atan((obj.w-2*dx)/(2*dz)))/pi;
+                    Hz = c*I*log(((0.5*obj.w-dx)^2+dz^2)/((0.5*obj.w+dx)^2+dz^2))/(2*pi);
+                    obj.dataArr(xInd,:,zInd,3) = Hz;
+                    obj.dataArr(xInd,:,zInd,1) = Hx;
                 end    
             end
             
             if true
             figure(1);
-            imagesc(squeeze(obj.dataArr(:,1,:,1)).'/1e-4);
+            imagesc(squeeze(obj.dataArr(:,1,:,1)).');
             axis xy; title('Hx'); colorbar();
 
             figure(2);
-            imagesc(squeeze(obj.dataArr(:,1,:,3)).'/1e-4);
+            imagesc(squeeze(obj.dataArr(:,1,:,3)).');
             axis xy; title('Hz'); colorbar();
             end
         end    
