@@ -81,7 +81,7 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
    
      % find magnetization projections and time 
    function parse(obj)
-     expr = '(mx)|(my)|(mz)|(Simulation time)';
+     expr = '(mx)|(my)|(mz)|(Simulation time)|(Bx)|(By)|(Bz)|(B)';
      
      for i=1:size(obj.colNames,1)
        nm = obj.colNames{i,1};  
@@ -98,6 +98,15 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
          elseif (strcmp(token{1,1}{1,1}{1,1},'Simulation time'))
            obj.time = obj.data(:,i);
            obj.dt = mean(diff(obj.time));
+         elseif (strcmp(token{1,1}{1,1}{1,1},'Bx'))
+           obj.Bx = obj.data(:,i);
+         elseif (strcmp(token{1,1}{1,1}{1,1},'By'))
+           obj.By = obj.data(:,i);
+         elseif (strcmp(token{1,1}{1,1}{1,1},'Bz'))
+           obj.Bz = obj.data(:,i);
+         elseif (strcmp(token{1,1}{1,1}{1,1},'B'))
+           obj.B = obj.data(:,i);
+           
          end          
        end
      end
@@ -114,14 +123,15 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
      params = p.Results; 
      
      Y = fftshift(abs(fft(obj.Mz(1:end))));
-     freq = linspace(-0.5/obj.dt,0.5/obj.dt,size(Y,1))/1e9;
+     
      
      if strcmp(params.scale,'norm')
-       plot(freq,Y);
+       plot(obj.freqScale/1e9,Y);
      else
-       semilogy(freq,Y);  
+       semilogy(obj.freqScale/1e9,Y);  
      end    
-     xlabel('Freq, GHz'); xlim(params.freqLim);
+     xlabel('Freq, GHz'); 
+     xlim([params.freqLim(1) params.freqLim(2)]);
      ylabel('FFT intensity');
      title('FFT of M_z projection');
       
@@ -138,6 +148,7 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
      p = inputParser;
      p.addParamValue('scale','norm',@(x) ismember(x,{'norm','log'}));
      p.addParamValue('saveImg',false,@islogical);
+     p.addParamValue('freqLim',[0 15],@isnumeric);
      p.parse(varargin{:});
      params = p.Results; 
      
@@ -154,6 +165,7 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
        ylabel('FFT intensity');
      
      title(strcat('FFT of M_x projection.'));
+     xlim([params.freqLim(1) params.freqLim(2)]);
      
      if (params.saveImg)
        [fName, errFlag] = generateFileName('.','odtXFFT','png');
@@ -166,6 +178,7 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
    function plotYFFT(obj,varargin)
      p = inputParser;
      p.addParamValue('scale','norm',@(x) ismember(x,{'norm','log'}));
+     p.addParamValue('freqLim',[0 15],@isnumeric);
      p.parse(varargin{:});
      params = p.Results; 
      
@@ -176,9 +189,12 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
        plot(freq,Y);
      else
        semilogy(freq,Y);  
-     end    
-      xlabel('Freq, GHz'); xlim([0,15]);
-      ylabel('FFT intensity');
+     end
+     
+     xlabel('Frequency (GHz)','FontSize',12,'FontName','Times'); xlim([0,15]);
+     ylabel('FFT intensity (arb. units)', 'FontSize',12,'FontName','Times');
+     xlim([params.freqLim(1) params.freqLim(2)]);
+     num2clip([freq(find(freq>=0)).' Y(find(freq>=0))]);
 
    end
    
@@ -204,6 +220,39 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
            savefig(strcat(params.saveAs,'.fig'));
            print(gcf,'-dpng',strcat(params.saveAs,'.png'));
        end
+   end 
+   
+   %% plot hysteresis loop from odt file 
+   % params:
+   %  - proj: projection of magnetization (z is default)
+   
+   function plotHystLoop(obj,varargin)
+       p = inputParser;
+       p.addParamValue('proj','z',@(x) any(strcmp(x,{'x','X','y','Y','z','Z'})));
+       p.addParamValue('saveAs','',@isstr);
+       p.addParamValue('xLim',0,@isnumeric);
+       p.parse(varargin{:});
+       params = p.Results;
+       
+       params.proj = lower(params.proj); 
+       
+       B = eval(strcat('obj.B',params.proj));
+       M = eval(strcat('obj.M',params.proj));
+       
+       plot(B/100,M,'-bo'); grid on
+       xlabel('H, kOe'); ylabel('M/M_s');
+       if (params.xLim ==0)
+          xlim([0.0105*min(B(:)) 0.0105*max(B(:))]);
+       else
+          xlim([params.xLim(1) params.xLim(2)]) 
+       end    
+       ylim([-1.05 1.05]);
+       
+       % save img
+       if (~strcmp(params.saveAs,''))
+           savefig(strcat(params.saveAs,'.fig'));
+           print(gcf,'-dpng',strcat(params.saveAs,'.png'));
+       end 
    end    
    
  end
