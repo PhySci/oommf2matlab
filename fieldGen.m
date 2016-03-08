@@ -55,13 +55,12 @@ classdef fieldGen < hgsetget
         
         function calcMagneticField(obj)
             I = 1;
-            
+            c = 1e-4;
             obj.dataArr = zeros(obj.xnodes,obj.ynodes,obj.znodes,obj.valuedim);
             for xInd = 1:obj.xnodes
                 dx = (xInd - obj.xPos)*obj.xstepsize;
                 for zInd = 1:obj.znodes
                     dz = (zInd - obj.zPos)*obj.zstepsize;
-                    c = 1;%pi/1e7;
                     Hx = c*I*(atan((obj.w+2*dx)/(2*dz))+atan((obj.w-2*dx)/(2*dz)))/pi;
                     Hz = c*I*log(((0.5*obj.w-dx)^2+dz^2)/((0.5*obj.w+dx)^2+dz^2))/(2*pi);
                     obj.dataArr(xInd,:,zInd,3) = Hz;
