@@ -77,11 +77,15 @@ classdef Kerr_ODS < hgsetget
         
         % calculate FFT spectra of the signal
         function makeFFT(obj,windFunc)
-            %windArr = hamming(size(obj.Chanel1,1));
-            windArr = rectwin(size(obj.Chanel1,1));
+            obj.FFTspec = zeros(size(obj.Chanel1,1),2);
             
+                        windArr = rectwin(size(obj.Chanel1,1));
+            signal = windArr.*(obj.Chanel1+i*obj.Chanel2);
+            obj.FFTspec(:,1) = fftshift(abs(fft(signal)));
+            
+            windArr = hamming(size(obj.Chanel1,1));
             signal = windArr.*(obj.Chanel1+i*obj.Chanel2); 
-            obj.FFTspec = fftshift(abs(fft(signal)));
+            obj.FFTspec(:,2) = fftshift(abs(fft(signal)));
         end    
         
         % scan folder, calculate FFT for every file and average FFT spectra
@@ -117,26 +121,31 @@ classdef Kerr_ODS < hgsetget
             p = inputParser();
             p.addParamValue('saveAs','',@isstring);
             p.parse(varargin{:});
-            params = p.Results;
-
+            params = p.Results; 
+            [~,fName,~] = fileparts(obj.fName)
+            figTitle = [fName, ' Position:(',num2str(obj.position.x_position,'% 10.2f'),',',...
+                num2str(obj.position.y_position,'% 10.2f'),',',...
+                num2str(obj.position.z_position,'% 10.2f'),')'];
+            
             hf = figure();
             subplot(211);
                 plot(obj.timeScale,obj.Chanel1,'-r',obj.timeScale,obj.Chanel2,'-b');
                 xlim([min(obj.timeScale) max(obj.timeScale)]);
-                title(obj.fName);
+                title(figTitle);
                 xlabel('Delay (ns)','FontSize',14,'FontName','Times');
                 ylabel('Signal (V)','FontSize',14,'FontName','Times');
                 legend('Chanel 1','Chanel 2');
                 
             subplot(212);
-                semilogy(obj.freqScale, obj.FFTspec); title('FFT');
-                %xlim([0 20]);
+                plot(obj.freqScale, obj.FFTspec); title('FFT');
+                legend('rectangular window','Hamming window')
+                xlim([0 25]);
                 xlabel('Frequency (GHz)','FontSize',14,'FontName','Times');
                 ylabel('FFT intensity (arb. units)','FontSize',14,'FontName','Times');
                 
             [pathstr,fName,ext] = fileparts(obj.fName);
-            savefig(hf,strcat(fName,'-hamming.fig'));
-            print(hf,'-dpng','-r600',strcat(fName,'-hamming.png'));
+            savefig(hf,strcat(fName,'.fig'));
+            print(hf,'-dpng','-r600',strcat(fName,'.png'));
         end 
         
         function sinFit(obj,varargin)

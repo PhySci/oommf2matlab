@@ -1,7 +1,5 @@
 function readHdf
-    fName = '160302-focus-c.h5';
-    info = h5info(fName);
-    h5disp(fName);
+    fName = '160304-focus-a.h5';
     
     xMin = h5readatt(fName,'/','Initial x');
     xMax = h5readatt(fName,'/','Final x');
@@ -46,7 +44,7 @@ function readHdf
             %    xlim([min(xScale) max(xScale)]);
             %    ylim([min(yScale) max(yScale)]);
 
-            print(gcf,'-dpng',strcat(num2str(imgInd),'.png'))
+            print(gcf,'-dpng',strcat(fName,'-',num2str(imgInd),'.png'))
             
         end
     end
