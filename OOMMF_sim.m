@@ -1029,11 +1029,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        end    
 
        % plot amplitude map
-<<<<<<< HEAD
-       fg1 = figure(1);
-=======
        fg = figure(1);
->>>>>>> 9f84ceae20cfef35a3033f740a53522f229a83c3
        %subplot(2,1,1);
            ref = min(Amp(find(Amp(:))));
 
@@ -1043,11 +1039,8 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                end    
                imagesc(yScale,xScale,log10(Amp/ref));
                hcb =colorbar('EastOutside');
-<<<<<<< HEAD
                colormap(jet)
                %cbfreeze(jet)
-=======
->>>>>>> 9f84ceae20cfef35a3033f740a53522f229a83c3
                %cbunits('dB');
            else
                imagesc(yScale,xScale,Amp,[0 1.05*max(Amp(:))]);
@@ -1064,11 +1057,8 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
 
 
        % plot phase map   
-<<<<<<< HEAD
        fg2 = figure(2);
-=======
        %subplot(2,1,2);
->>>>>>> 9f84ceae20cfef35a3033f740a53522f229a83c3
            imagesc(yScale,xScale,Phase,[-pi pi]);
            title(['Phase of FFT, \nu=' num2str(params.freq) 'GHz, slice ' num2str(params.zSlice)]);
            
@@ -1428,10 +1418,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        end
        
        
-<<<<<<< HEAD
-       MzFile = matfile(fullfile(folder,'Mz.mat'));
-       FFTzFile = matfile(fullfile(folder,'MzFFT.mat'),'Writable',true);
-=======
+
        disp('FFT');
        
        if exist('MxFile','var')
@@ -1446,10 +1433,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            disp('No projections');
            return
        end
->>>>>>> 9f84ceae20cfef35a3033f740a53522f229a83c3
        
-       
-       arrSize = size(MzFile,'Mz');
        % process chunk
        if (params.chunk)
            zStep = 2
