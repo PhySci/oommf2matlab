@@ -1,6 +1,6 @@
 % Class for processing results of OOMMF simulations
 % It was developed based on experience of using of OOMMF_result
-classdef OOMMF_sim < hgsetget % subclass hgsetget
+classdef OOMMF_sim_angus < hgsetget % subclass hgsetget
  
  properties
    fName = ''
@@ -1169,24 +1169,24 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            end
            imagesc(yScale,xScale,log10(Amp/ref));
            hcb =colorbar('EastOutside');
-           cbunits('dB');
+           %cbunits('dB');
        else
            imagesc(yScale,xScale,Amp,[0 max(Amp(:))]);
            hcb = colorbar('EastOutside');
-           cbunits('a.u.');
+           %cbunits('a.u.');
        end
            title(['Amplitude of FFT, \nu = ' num2str(params.freq) ' GHz']);
            axis xy;
            ylabel('X, \mum'); xlabel('Y, \mum');
            colormap(flipud(gray));
-           freezeColors; 
-           cbfreeze;
+           %freezeColors; 
+           %cbfreeze;
            
        subplot(212);
            imagesc(yScale,xScale,Phase);
            title('Phase')
            axis xy; colorbar('EastOutside');
-           cblabel('rad.'); colormap(hsv);
+           %cblabel('rad.'); colormap(hsv);
            ylabel('X, \mum'); xlabel('Y, \mum');
            
                      
@@ -1202,7 +1202,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        p.addParamValue('label','',@isstr);
        p.addParamValue('scale','norm', @(x) any(strcmp(x, {'norm','log'})));
-       p.addParamValue('proj','z',@(x)any(strcmp(x,obj.availableProjs)));
+       p.addParamValue('proj','',@(x)any(strcmp(x,obj.availableProjs)));
        p.addParamValue('xRange',0,@isnumeric);
        p.addParamValue('yRange',0,@isnumeric);
        p.addParamValue('zRange',0,@isnumeric);
@@ -1210,10 +1210,12 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        p.parse(varargin{:});
        params = p.Results;
+       matfilename = strcat('M',params.proj,'FFT.mat')
+       FFTFile = matfile(matfilename);
        
-       FFTFile = matfile('MzFFT.mat'); 
+       dataname = strcat('Y',params.proj)
        
-       mSize = size(FFTFile,strcat('Y',params.proj));
+       mSize = size(FFTFile,dataname);
        % process input range parameters
        if (params.xRange == 0)
            params.xRange = [1 mSize(2)];
@@ -1228,7 +1230,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        end
        
        
-       FFT = FFTFile.Yz(:,params.xRange(1):params.xRange(2),...
+       FFT = FFTFile.Yx(:,params.xRange(1):params.xRange(2),...
            params.yRange(1):params.yRange(2),...
            params.zRange(1):params.zRange(2));
        Amp = mean(mean(mean(abs(FFT),4),3),2);
@@ -1736,8 +1738,8 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            xlabel(axis1Label); ylabel(axis2Label);
            obj.setDbColorbar();
            colormap(flipud(gray));
-           freezeColors;
-           cbfreeze;
+           %freezeColors;
+           %cbfreeze;
            title(['\nu = ',num2str(params.freq),' GHz, k = ',num2str(params.k),...
                '\mum, M_',params.proj,' projection'],'FontSize',14,'FontName','Times');
        
@@ -1746,7 +1748,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            axis xy
            xlabel(axis1Label); ylabel(axis2Label);
            colorbar('EastOutside');
-           cblabel('rad.');
+           %cblabel('rad.');
            colormap(hsv);
            
       %fig2 = figure(3);
@@ -1789,7 +1791,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        params.normalAxis = lower(params.normalAxis);
        
        % load file of parameters
-       obj = obj.getSimParams;
+       obj.getSimParams;
        
        % process spatial ranges
        if (params.xRange==0)
@@ -1836,7 +1838,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                  Mx.*InpX+My.*InpY;
        end    
        
-       save('Minp.mat','Minp');
+       save('Minp.mat','Minp','-v7.3')
 
    end 
    
@@ -1923,7 +1925,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        tmp2 = load(fullfile(obj.folder,obj.paramsFile));
        tmp = tmp2.obj;
        % make a normal rewritting of parameters
-       propList = properties('OOMMF_sim');
+       propList = properties('OOMMF_sim_angus');
        for propInd = 1:size(propList,1)
            propName = propList(propInd);
            set(obj,propName,get(tmp,propName));
