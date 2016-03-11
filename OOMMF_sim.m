@@ -1029,7 +1029,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        end    
 
        % plot amplitude map
-       fg = figure(1);
+       fg1 = figure(1);
        %subplot(2,1,1);
            ref = min(Amp(find(Amp(:))));
 
@@ -1077,8 +1077,8 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    
     % plot spatial map of FFT distribution for a given frequency
     % parameters
-    %       - freq is desired frequency
-      % plot spatial map of FFT distribution for a given frequency
+    %       freq - desired frequency
+    %       rotate - rotate the image (false) 
    function plotFFTSliceY(obj,varargin)
     p = inputParser;
    
@@ -1091,8 +1091,10 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        p.addParamValue('scale','log', @(x) any(strcmp(x,{'norm','log'})));
        p.addParamValue('saveAs','',@isstr);
-       p.addParamValue('proj','z',@(x)any(strcmp(x,obj.availableProjs)))
+       p.addParamValue('proj','z',@(x)any(strcmp(x,obj.availableProjs)));
        
+       p.addParamValue('rotate',false,@islogical);
+            
        p.parse(varargin{:});
        params = p.Results;
        
@@ -1123,8 +1125,8 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        xScale=linspace(obj.xmin,obj.xmax,obj.xnodes)/1e-6;
        xScale = xScale(params.xRange(1):params.xRange(2));
        
-       yScale=linspace(obj.ymin,obj.ymax,obj.ynodes)/1e-6;
-       yScale = yScale(params.yRange(1):params.yRange(2));
+       %yScale=linspace(obj.ymin,obj.ymax,obj.ynodes)/1e-6;
+       %yScale = yScale(params.yRange(1):params.yRange(2));
              
        zScale= linspace(obj.zmin,obj.zmax,obj.znodes)/1e-6;
        zScale = zScale(params.zRange(1):params.zRange(2));
@@ -1137,18 +1139,18 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            case 'x'
                fftSlice = squeeze(FFTFile.Yx(freqInd,...
                    params.xRange(1):params.xRange(2),...
-                   params.yRange(1):params.yRange(2),...
+                   params.ySlice,...
                    params.zRange(1):params.zRange(2)));
            case 'y'
                fftSlice = squeeze(FFTFile.Yy(freqInd,...
                    params.xRange(1):params.xRange(2),...
-                   params.yRange(1):params.yRange(2),...
+                   params.ySlice,...
                    params.zRange(1):params.zRange(2)));
                
            case 'z'
                fftSlice = squeeze(FFTFile.Yz(freqInd,...
                    params.xRange(1):params.xRange(2),...
-                   params.yRange(1):params.yRange(2),...
+                   params.ySlice,...
                    params.zRange(1):params.zRange(2)));
            otherwise
                disp('Unknown projection');
@@ -1156,50 +1158,78 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        end
        
        if (size(fftSlice,3)>1)
-           Amp = squeeze(mean(abs(fftSlice),3));
-           Phase = squeeze(mean(angle(fftSlice),3));
-       end   
+           Amp = squeeze(mean(abs(fftSlice),2));
+           Phase = squeeze(mean(angle(fftSlice),2));
+       else
+           Amp = squeeze(abs(fftSlice));
+           Phase = squeeze(angle(fftSlice));
+       end
+       
+       if params.rotate
+           xScaleName = 'Z (\mum)';
+           yScaleName = 'X, (\mum)';  
+       else
+           Amp = Amp.';
+           Phase = Phase.';
+           tmp = xScale;
+           xScale = zScale;
+           zScale = tmp;
+           xScaleName = 'X (\mum)';
+           yScaleName = 'Z (\mum)';
+       end
        
        % plot amplitude map
-       figure(5);
-       subplot(211);
-       if strcmp(params.scale,'log')
-           ref = min(Amp(find(Amp(:))));
-           if (isempty(ref))
-               ref = 1;
+       fg1 = figure(1);
+
+           if strcmp(params.scale,'log')
+               ref = min(Amp(find(Amp(:))));
+               if (isempty(ref))
+                   ref = 1;
+               end
+               imagesc(zScale,xScale,log10(Amp/ref));
+               hcb =colorbar('EastOutside');
+               %cbunits('dB');
+               obj.setDbColorbar('Spectral density (dB)');
+           else
+               imagesc(zScale,xScale,Amp,[0 max(Amp(:))]);
+               hcb = colorbar('EastOutside');
+               %cbunits('a.u.');
+               obj.setDbColorbar('Spectral density (arb. units)');
            end
-           imagesc(yScale,xScale,log10(Amp/ref));
-           hcb =colorbar('EastOutside');
-           cbunits('dB');
-       else
-           imagesc(yScale,xScale,Amp,[0 max(Amp(:))]);
-           hcb = colorbar('EastOutside');
-           cbunits('a.u.');
-       end
-           title(['Amplitude of FFT, \nu = ' num2str(params.freq) ' GHz']);
-           axis xy;
-           ylabel('X, \mum'); xlabel('Y, \mum');
-           colormap(flipud(gray));
-           freezeColors; 
-           cbfreeze;
+
+           title(['Spectral density of FFT, \nu = ' num2str(params.freq) ' GHz'],...
+               'FontSize',20,'FontName','Times');
+           axis xy; colormap(flipud(gray)); 
+           xlabel(xScaleName); ylabel(yScaleName); 
+           %freezeColors;
+           %cbfreeze;
+
+            % save figure
+           if ~isempty(params.saveAs)
+                obj.savePlotAs(strcat(params.saveAs,'-amp'),gcf); 
+           end    
            
-       subplot(212);
-           imagesc(yScale,xScale,Phase);
-           title('Phase')
+       fg2 = figure(2);
+           imagesc(zScale,xScale,Phase);
+           title(['Phase of FFT, \nu = ' num2str(params.freq) ' GHz'],...
+               'FontSize',20,'FontName','Times');
            axis xy; colorbar('EastOutside');
-           cblabel('rad.'); colormap(hsv);
-           ylabel('X, \mum'); xlabel('Y, \mum');
-           
-                     
-       % save figure
-       obj.savePlotAs(params.saveAs,gcf);   
-                     
-       % save figure
-       obj.savePlotAs(params.saveAs,gcf);   
+           %cblabel('rad.');
+           colormap(hsv);
+           xlabel(xScaleName); ylabel(yScaleName); 
+           obj.setDbColorbar('Phase (rad)')
+           % save figure
+           if ~isempty(params.saveAs)
+               obj.savePlotAs(strcat(params.saveAs,'-phase'),gcf); 
+           end
    end 
      
    % plot average dependence of FFT intensity on frequency
    % The absolute value of FFT coefficients are averaged over volume.
+   % params:
+   %    scale - log or norm scale of the output dependence (norm)
+   %    proj  - desirable projection of magnetization (@TODO, is broken)
+   %    xRange, yRange, zRange - spatial range of region of interest 
    function plotFFTIntensity(obj,varargin)
        
        p = inputParser;
@@ -1211,6 +1241,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        p.addParamValue('yRange',0,@isnumeric);
        p.addParamValue('zRange',0,@isnumeric);
        p.addParamValue('saveAs','',@isstr);
+       p.addParamValue('freqLimit',[0 25],@isnumeric)
        
        p.parse(varargin{:});
        params = p.Results;
@@ -1231,20 +1262,28 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            params.zRange = [1 mSize(4)];
        end
        
+       obj.getSimParams;
+       % calculate desirable range of freqeuncy
+       freqScale = obj.getWaveScale(obj.dt,mSize(1))/1e9; 
+       [~,freqScaleInd(1)] = min(abs(freqScale-params.freqLimit(1)));
+       [~,freqScaleInd(2)] = min(abs(freqScale-params.freqLimit(2)));
+       freqScale = freqScale(freqScaleInd(1):freqScaleInd(2));
        
-       FFT = FFTFile.Yz(:,params.xRange(1):params.xRange(2),...
+       
+       FFT = FFTFile.Yz(freqScaleInd(1):freqScaleInd(2),...
+           params.xRange(1):params.xRange(2),...
            params.yRange(1):params.yRange(2),...
            params.zRange(1):params.zRange(2));
        Amp = abs(mean(mean(mean(FFT,4),3),2));
        
-       freqScale = obj.getWaveScale(obj.dt,size(Amp,1))/1e9;
        if (strcmp(params.scale,'norm'))
            plot(freqScale,Amp);
+           ylabel('Spectral density (arb. units)');
        else
            semilogy(freqScale,Amp);
+           ylabel('Spectral density (dB)');
        end
-       xlim([0 40]); xlabel('Frequency (GHz)');
-       ylabel('FFT intensity (arb. units)');
+       xlim(params.freqLimit); xlabel('Frequency (GHz)');
        %num2clip([freqScale(find(freqScale>=0)).' Amp(find(freqScale>=0))]);
        
        % save figure
@@ -2031,9 +2070,12 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    
    %% set colorbar for imagesc
    % should be protected
-   function setDbColorbar(obj)
+   function setDbColorbar(obj,text)
        t = colorbar('peer',gca);
-       set(get(t,'ylabel'),'String', 'FFT intensity, dB');
+       if isempty(text)
+           text = 'Spectral density (dB)';
+       end   
+       set(get(t,'ylabel'),'String',text,'FontSize',16,'FontName','Times');
    end
    
    %% read file of parameters
