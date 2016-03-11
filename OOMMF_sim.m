@@ -610,7 +610,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
           
      % evaluate required memory and compare with available space
       % memory required for one time frame 
-     oneTimeFrameMemory = 8*obj.xnodes*obj.ynodes*obj.znodes*obj.dim;
+     oneTimeFrameMemory = 3*8*obj.xnodes*obj.ynodes*obj.znodes*obj.dim;
 
      availableSpace = obj.getMemory();
     
@@ -2189,8 +2189,9 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                [tokens] = regexp(meminfo,'MemFree:\s*(\d+)\s','tokens');
                mem = str2double(tokens{1}{1})*1e3;
            
-           case 'PCWIN64'           
-               mem = memory.MaxPossibleArrayBytes;
+           case 'PCWIN64'
+               tmp = memory;
+               mem = tmp.MaxPossibleArrayBytes;
            otherwise
                mem = 1e3;
                disp('Unknown platform. Please, fix the bag');
