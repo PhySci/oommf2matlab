@@ -228,7 +228,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      
      if (strcmp(name,'') && strcmp(ext,''))
          [obj.fName,fPath,~] = uigetfile({'*.omf'; '*.ohf'; '*.stc'; '*.ovf'});
-         fName = fullfile(fPath,fName);  
+         fName = fullfile(fPath,obj.fName);  
      elseif (strcmp(ext,''))
          fName = strcat(obj.fName,'.',params.fileExt);
      else
