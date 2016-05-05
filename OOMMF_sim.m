@@ -1186,7 +1186,8 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                if (isempty(ref))
                    ref = 1;
                end
-               imagesc(zScale,xScale,log10(Amp/ref));
+               val = log10(Amp);
+               imagesc(zScale,xScale,val,[0 max(val(:))]);
                hcb =colorbar('EastOutside');
                %cbunits('dB');
                obj.setDbColorbar('Spectral density (dB)');
@@ -1475,7 +1476,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        % process chunk
        if (params.chunk)
-           zStep = 2
+           zStep = 512
            chunkAmount = arrSize(4)/zStep
        else     
            zStep = arrSize(4)
@@ -1518,7 +1519,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                    FFTxFile.Yx(1:floor(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
                        tmp((ceil(0.5*arrSize(1))+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
                    FFTxFile.Yx(ceil(0.5*arrSize(1)):arrSize(1),1:arrSize(2),1:arrSize(3),:) =...
-                       tmp(1:ceil(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),zStart:zEnd);
+                       tmp(1:ceil(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),:);
                else
                    FFTxFile.Yx(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
                        tmp((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
@@ -1606,7 +1607,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            end
            
            if ~isempty(strfind(params.proj,'inp'))
-               % process Mz projection
+               % process Minp projection
                disp('Minp');
 
 
@@ -1637,8 +1638,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                end
            end
        end
-       disp('Write');
-       FFTFile.Yz = fftshift(tmp);        
+     
    end
  
    % plot distribution of FFT intensity of Y component of magnetisation
@@ -1942,42 +1942,45 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        % load file of static configuration
        [MxStatic,MyStatic,MzStatic] = obj.getStatic(obj.folder);
        
-       InpX = zeros(obj.xnodes,obj.ynodes,obj.znodes);
-       InpY = zeros(obj.xnodes,obj.ynodes,obj.znodes);
-       
-       InpX = sqrt((MyStatic(params.xRange,params.yRange,params.zRange).^2)./...
-                 (MxStatic(params.xRange,params.yRange,params.zRange).^2+...
-                  MyStatic(params.xRange,params.yRange,params.zRange).^2));
-       InpY = sqrt((MxStatic(params.xRange,params.yRange,params.zRange).^2)./...
-             (MxStatic(params.xRange,params.yRange,params.zRange).^2+...
-             MyStatic(params.xRange,params.yRange,params.zRange).^2));
-       % calculate coordinates of normal plane for every points
-
-       % load magnetization
-       MxFile = matfile(obj.MxName);
-       MyFile = matfile(obj.MyName);
-       MzFile = matfile(obj.MzName);
-       timeFrames = size(MxFile,'Mx',1);
-       
-       % initialize array of in-plane magnetization 
-       Minp = zeros(timeFrames,obj.xnodes,obj.ynodes,obj.znodes);
-                   
-                   
-       for timeStep = 1:timeFrames
-           disp(timeStep);
-           Mx = squeeze(MxFile.Mx(timeStep,params.xRange,...
-                           params.yRange,params.zRange));
-           My = squeeze(MyFile.My(timeStep,params.xRange,...
-                           params.yRange,params.zRange));
-           Minp(timeStep,params.xRange,params.yRange,params.zRange) = ...
-                 Mx.*InpX+My.*InpY;
-       end    
+       switch params.normalAxis
+           case 'z'
+               InpX = zeros(obj.xnodes,obj.ynodes,obj.znodes);
+               InpY = zeros(obj.xnodes,obj.ynodes,obj.znodes);
+               
+               InpX = sqrt((MyStatic(params.xRange,params.yRange,params.zRange).^2)./...
+                   (MxStatic(params.xRange,params.yRange,params.zRange).^2+...
+                   MyStatic(params.xRange,params.yRange,params.zRange).^2));
+               InpY = sqrt((MxStatic(params.xRange,params.yRange,params.zRange).^2)./...
+                   (MxStatic(params.xRange,params.yRange,params.zRange).^2+...
+                   MyStatic(params.xRange,params.yRange,params.zRange).^2));
+               % calculate coordinates of normal plane for every points
+               
+               % load magnetization
+               MxFile = matfile(obj.MxName);
+               MyFile = matfile(obj.MyName);
+               MzFile = matfile(obj.MzName);
+               timeFrames = size(MxFile,'Mx',1);
+               
+               % initialize array of in-plane magnetization
+               Minp = zeros(timeFrames,obj.xnodes,obj.ynodes,obj.znodes);
+               
+               
+               for timeStep = 1:timeFrames
+                   disp(timeStep);
+                   Mx = squeeze(MxFile.Mx(timeStep,params.xRange,...
+                       params.yRange,params.zRange));
+                   My = squeeze(MyFile.My(timeStep,params.xRange,...
+                       params.yRange,params.zRange));
+                   Minp(timeStep,params.xRange,params.yRange,params.zRange) = ...
+                       Mx.*InpX+My.*InpY;
+               end
+       end
        
        mFile = matfile('Minp.mat','Writable',true);
        mFile.Minp = Minp; 
    end 
    
-   
+   %% Interpolation of time dependence
    function interpTimeDependence(obj, varargin)
    % Interpolatation of time dependences for non-regular time step
   
@@ -1994,13 +1997,6 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      try 
          table = importdata(params.tableFile)
          tableData = table.data;
-%          fid = fopen(params.tableFile);
-%          fgetl(fid); % skip first text line
-% %          while ~feof(fid)
-% %              line = fgetl(fid);
-% %              tableData = [tableData; sscanf(line,'%g').'];
-%          end    
-%          fclose(fid);
      catch err
          disp(err.message);
          return
@@ -2014,21 +2010,23 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      % interpolate
      switch params.value
          case 'M'
-             MFile = matfile('Mx.mat');
-             OutMFile = matfile('MxInterp.mat');
-             OutMFile.Mx = obj.interpArray(MFile.Mx, timeScaleOld, timeScaleNew)
+             %MFile = matfile('Mx.mat');
+             %OutMFile = matfile('MxInterp.mat');
+             %OutMFile.Mx = obj.interpArray(MFile.Mx, timeScaleOld, timeScaleNew);
              
-             MFile = matfile('My.mat');
-             OutMFile = matfile('MyInterp.mat');
-             OutMFile.My = obj.interpArray(MFile.My, timeScaleOld, timeScaleNew)
+             %MFile = matfile('My.mat');
+             %OutMFile = matfile('MyInterp.mat');
+             %OutMFile.My = obj.interpArray(MFile.My, timeScaleOld, timeScaleNew);
              
              MFile = matfile('Mz.mat');
              OutMFile = matfile('MzInterp.mat');
-             OutMFile.Mz = obj.interpArrayPar(MFile.Mz, timeScaleOld, timeScaleNew)
+             OutMFile.Mz = obj.interpArray(MFile.Mz, timeScaleOld, timeScaleNew);
              
-             MFile = matfile('Minp.mat');
-             OutMFile = matfile('MinpInterp.mat');
-             OutMFile.Minp = obj.interpArray(MFile.Minp, timeScaleOld, timeScaleNew)
+             
+             %MFile = matfile('Minp.mat');
+             %OutMFile = matfile('MinpInterp.mat');
+             %OutMFile.Minp = obj.interpArray(MFile.Minp, timeScaleOld, timeScaleNew);
+             
          case 'H'
              MFile = matfile('Hx.mat');
              OutMFile = matfile('HxInterp.mat');
@@ -2045,6 +2043,30 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
              disp('Unknown physical value');
      end    
 
+   end
+   
+   %% Plot surface coordinate-time
+   % Useful for visualization of propagation of spin waves
+   
+   function plotWaveSurf(obj,varargin)
+       % read input patameters
+       
+       p = inputParser;
+       p.addParamValue('zSlice',1,@isnumeric);
+       p.addParamValue('ySlice',1,@isnumeric);
+       p.parse(varargin{:});      
+       params = p.Results;
+       
+       obj.getSimParams();
+       
+       MFile = matfile('Mz.mat');
+       data = MFile.Mz(:,:,params.ySlice,params.zSlice);
+       xScale = linspace(obj.xmin,obj.xmax,obj.xnodes)/1e-6;
+       timeScale = linspace(0,obj.dt*size(data,1),size(data,1))/1e-9;
+       imagesc(xScale,timeScale,data);
+       colormap(jet); colorbar();
+       axis xy
+       xlabel('X (\mum)');        ylabel('Time (ns)')
    end    
    
    % END OF PUBLIC METHODS
