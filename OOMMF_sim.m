@@ -1670,7 +1670,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    end    
       
    
-  function plotFreqWaveSlice(obj,freq,k,varargin)
+  function res = plotFreqWaveSlice(obj,freq,k,varargin)
    % plot amplitude and phase of modes in (y,z) coordinates
    %for given frequency and k wave number
    % PARAMS
@@ -1776,7 +1776,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            
            % axis labels
            axis1Label = 'Y (\mum)';
-           axis2Label = 'Z (\mum)';
+           axis2Label = 'X (\mum)';
            
            % axis scale
            axis2Scale = linspace(params.yRange(1)*obj.ystepsize,...
@@ -1807,8 +1807,8 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            YtsSlice = squeeze(Yts(:,:,kInd));
            
            % axis labels
-           axis1Label = 'X (\mum)';
-           axis2Label = 'Y (\mum)';
+           axis1Label = 'Y (\mum)';
+           axis2Label = 'X (\mum)';
            
            % axis scale
            axis1Scale = linspace(params.xRange(1)*obj.xstepsize,...
@@ -1827,38 +1827,56 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        % plot results
        Amp = abs(YtsSlice);
        Phase = angle(YtsSlice);
-       fig1 = figure(2);
-       subplot(211);
-           imagesc(axis2Scale,axis1Scale,Amp.',[0 max(Amp(:))]);
-           axis xy
-           xlabel(axis1Label); ylabel(axis2Label);
-           obj.setDbColorbar();
-           colormap(flipud(gray));
-           freezeColors;
-           cbfreeze;
-           title(['\nu = ',num2str(params.freq),' GHz, k = ',num2str(params.k),...
-               '\mum, M_',params.proj,' projection'],'FontSize',14,'FontName','Times');
        
-       subplot(212);
-           imagesc(axis2Scale,axis1Scale,Phase.',[-pi pi]);
-           axis xy
-           xlabel(axis1Label); ylabel(axis2Label);
-           colorbar('EastOutside');
-           cblabel('rad.');
-           colormap(hsv);
+       fig1 = figure(1);
+           subplot(211);
+               imagesc(axis2Scale,axis1Scale,Amp.',[0 max(Amp(:))]);
+               axis xy
+               xlabel(axis2Label); ylabel(axis1Label);
+               obj.setDbColorbar();
+               colormap(flipud(gray));
+               freezeColors;
+               cbfreeze;
+               title(['\nu = ',num2str(params.freq),' GHz, k = ',num2str(params.k),...
+                   '\mum, M_',params.proj,' projection'],'FontSize',14,'FontName','Times');
+
+           subplot(212);
+               imagesc(axis2Scale,axis1Scale,Phase.',[-pi pi]);
+               axis xy
+               xlabel(axis2Label); ylabel(axis1Label);
+               colorbar('EastOutside');
+               cblabel('rad.');
+               colormap(hsv);
            
-      %fig2 = figure(3);
-      %     subplot(211); plot(axis2Scale,mean(Amp,1));
-      %     title(['\nu = ',num2str(params.freq),' GHz, k = ',num2str(params.k),...
-      %         '\mum, M_',params.proj,' projection'],'FontSize',14,'FontName','Times');
-      %     xlabel(axis1Label); ylabel('Amplitude (arb. u.)')
-      
-      %     phasePlot = mean(Phase,1);
-      %     phasePlot(find(phasePlot<0)) = phasePlot(find(phasePlot<0))+2*pi;
-           
-      %     subplot(212); plot(axis2Scale,phasePlot);
-      %          xlabel(axis1Label); ylabel('Phase (rad)')
-      
+      fig2 = figure(2);
+          meanAmp = mean(Amp,1);
+          meanPhase = mean(Phase,1);
+          res = meanAmp;
+          subplot(211);
+              plot(axis2Scale,meanAmp);
+              title(['\nu = ',num2str(params.freq),' GHz, k = ',num2str(params.k),...
+                   '\mum, M_',params.proj,' projection'],'FontSize',14,'FontName','Times');
+              xlabel(axis2Label); ylabel('Amplitude (arb. u.)')
+
+            
+          subplot(212);
+              meanPhase(find(meanPhase<0)) = meanPhase(find(meanPhase<0))+2*pi;
+              plot(axis2Scale,meanPhase);
+              xlabel(axis2Label); ylabel('Phase (rad)');
+       
+      fig3 = figure(3);
+          x = Amp(1,:).*cos(Phase(1,:)); 
+          y = Amp(1,:).*sin(Phase(1,:)); 
+
+          subplot(211);
+              plot(axis2Scale,x);
+              xlabel(axis1Label); ylabel('Amplitude (arb. u.)');
+          subplot(212);
+              plot(axis2Scale,y);
+              xlabel(axis1Label); ylabel('Amplitude (arb. u.)');
+              
+          save branch4.mat Amp Phase    
+
        % save img
        if (~strcmp(params.saveAs,''))
            fName = strcat(params.saveAs,'_f',num2str(params.freq),'GHz_k',...
@@ -2147,8 +2165,9 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                [tokens] = regexp(meminfo,'MemFree:\s*(\d+)\s','tokens');
                mem = str2double(tokens{1}{1})*1e3;
            
-           case 'PCWIN64'           
-               mem = memory.MaxPossibleArrayBytes;
+           case 'PCWIN64'
+               tmp = memory;
+               mem = tmp.MaxPossibleArrayBytes;
            otherwise
                mem = 1e3;
                disp('Unknown platform. Please, fix the bag');
