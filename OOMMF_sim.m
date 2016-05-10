@@ -382,19 +382,15 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        % calculate spatial scales
        
        xScale = linspace(obj.xmin,obj.xmax,obj.xnodes)/1e-6;
-       yScale = linspace(obj.ymin,obj.ymax,obj.ynodes)/1e-6;
+       yScale = linspace(obj.zmin,obj.zmax,obj.znodes)/1e-6;
        
 
-       imagesc(xScale,yScale,M.');
+       imagesc(xScale,yScale,M.'/1e3);
        axis xy;
-           xlabel('X, \mum','FontSize',14,'FontName','Times');
-           ylabel('Z, \mum','FontSize',14,'FontName','Times');
-           colorbar
-
-       
-       %handler = obj.abstractPlot('Y',params.slice,params.proj,...
-       %    'saveImg',params.saveImg,'saveImgPath',params.saveImgPath,...
-       %    'colourRange',params.colourRange,'showScale',params.showScale);
+           xlabel('x (\mum)','FontSize',14,'FontName','Times');
+           ylabel('z (\mum)','FontSize',14,'FontName','Times');
+           t = colorbar('peer',gca);
+           set(get(t,'ylabel'),'String','M_S (kA/m)','FontSize',14,'FontName','Times');
    end
    
    % plot vector plot of magnetisation in XZ plane
