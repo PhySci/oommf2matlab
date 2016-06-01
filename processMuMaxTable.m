@@ -57,7 +57,7 @@ function processMuMaxTable
             
    fg2 = figure(2);
         semilogy(freqScale,[SpecX SpecZ]);
-        xlim([0 7]); xlabel('Frequency (GHz)','FontSize',14,'FontName','Times');
+        xlim([1 5]); xlabel('Frequency (GHz)','FontSize',14,'FontName','Times');
         ylabel('Spectral density (arb. units)','FontSize',14,'FontName','Times');
         legend('M_x','M_z');
         
@@ -65,15 +65,8 @@ function processMuMaxTable
         savefig(fg2,'logSpec.fig');
    
    fg3 = figure(3);
-        subplot(211);
-            plot(freqScale,SpecX);
-            xlim([0 7]); legend('M_x')
-            xlabel('Frequency (GHz)','FontSize',14,'FontName','Times');
-            ylabel('Spectral density (arb. units)','FontSize',14,'FontName','Times');
-
-        subplot(212); plot(freqScale,SpecZ);
-            plot(freqScale,SpecZ);
-            xlim([0 7]); legend('M_z')
+            plot(freqScale,[SpecX SpecZ]);
+            xlim([2 4]); legend('M_x','M_z')
             xlabel('Frequency (GHz)','FontSize',14,'FontName','Times');
             ylabel('Spectral density (arb. units)','FontSize',14,'FontName','Times');
         
