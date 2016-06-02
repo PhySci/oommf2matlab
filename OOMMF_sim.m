@@ -1996,67 +1996,66 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    
    %% Interpolation of time dependence
    function interpTimeDependence(obj, varargin)
-   % Interpolatation of time dependences for non-regular time step
-  
-   % read input patameters  
+       % Interpolatation of time dependences for non-regular time step
+       
+       % read input patameters
        p = inputParser;
        p.addParamValue('tableFile','table.txt',@isstr);
        p.addParamValue('value','M',@(x) any(strcmp(x,{'M','H'})));
        p.parse(varargin{:});
        params = p.Results;
-     
        
-     tableData=[];
-     % read tableFile, get time scale
-     try 
-         table = importdata(params.tableFile)
-         tableData = table.data;
-     catch err
-         disp(err.message);
-         return
-     end
-     
-     % load projection of magnetisation
-     timeScaleOld = tableData(:,1); % original time scale
-     timeScaleNew = linspace(timeScaleOld(1),timeScaleOld(end),size(timeScaleOld,1)).';
-     %parpool(8);
-     
-     % interpolate
-     switch params.value
-         case 'M'
-             %MFile = matfile('Mx.mat');
-             %OutMFile = matfile('MxInterp.mat');
-             %OutMFile.Mx = obj.interpArray(MFile.Mx, timeScaleOld, timeScaleNew);
-             
-             %MFile = matfile('My.mat');
-             %OutMFile = matfile('MyInterp.mat');
-             %OutMFile.My = obj.interpArray(MFile.My, timeScaleOld, timeScaleNew);
-             
-             MFile = matfile('Mz.mat');
-             OutMFile = matfile('MzInterp.mat');
-             OutMFile.Mz = obj.interpArrayPar(MFile.Mz, timeScaleOld, timeScaleNew);
-             
-             
-             %MFile = matfile('Minp.mat');
-             %OutMFile = matfile('MinpInterp.mat');
-             %OutMFile.Minp = obj.interpArray(MFile.Minp, timeScaleOld, timeScaleNew);
-             
-         case 'H'
-             MFile = matfile('Hx.mat');
-             OutMFile = matfile('HxInterp.mat');
-             OutMFile.Mx = obj.interpArray(MFile.Hx, timeScaleOld, timeScaleNew)
-             
-             MFile = matfile('Hy.mat');
-             OutMFile = matfile('HyInterp.mat');
-             OutMFile.My = obj.interpArray(MFile.Hy, timeScaleOld, timeScaleNew)
-             
-             MFile = matfile('Hz.mat');
-             OutMFile = matfile('HzInterp.mat');
-             OutMFile.Mz = obj.interpArrayPar(MFile.Hz, timeScaleOld, timeScaleNew)
-         otherwise
-             disp('Unknown physical value');
-     end    
-
+       obj.getSimParams();
+       
+       tableData=[];
+       % read tableFile, get time scale
+       try
+           table = importdata(params.tableFile)
+           tableData = table.data;
+       catch err
+           disp(err.message);
+           return
+       end
+       
+       % load projection of magnetisation
+       timeScaleOld = tableData(:,1); % original time scale
+       timeScaleNew = linspace(timeScaleOld(1),timeScaleOld(end),size(timeScaleOld,1)).';
+       %parpool(8);
+       
+       % interpolate
+       switch params.value
+           case 'M'
+               %MFile = matfile('Mx.mat');
+               %OutMFile = matfile('MxInterp.mat');
+               %OutMFile.Mx = obj.interpArray(MFile.Mx, timeScaleOld, timeScaleNew);
+               
+               %MFile = matfile('My.mat');
+               %OutMFile = matfile('MyInterp.mat');
+               %OutMFile.My = obj.interpArray(MFile.My, timeScaleOld, timeScaleNew);
+               
+               obj.interpArray(matfile('Mz.mat'), matfile('MzInterp.mat'), 'Mz', timeScaleOld, timeScaleNew);
+               
+               
+               %MFile = matfile('Minp.mat');
+               %OutMFile = matfile('MinpInterp.mat');
+               %OutMFile.Minp = obj.interpArray(MFile.Minp, timeScaleOld, timeScaleNew);
+               
+           case 'H'
+               MFile = matfile('Hx.mat');
+               OutMFile = matfile('HxInterp.mat');
+               OutMFile.Mx = obj.interpArray(MFile.Hx, timeScaleOld, timeScaleNew)
+               
+               MFile = matfile('Hy.mat');
+               OutMFile = matfile('HyInterp.mat');
+               OutMFile.My = obj.interpArray(MFile.Hy, timeScaleOld, timeScaleNew)
+               
+               MFile = matfile('Hz.mat');
+               OutMFile = matfile('HzInterp.mat');
+               OutMFile.Mz = obj.interpArrayPar(MFile.Hz, timeScaleOld, timeScaleNew)
+           otherwise
+               disp('Unknown physical value');
+       end
+       
    end
    
    %% Plot surface coordinate-time
@@ -2180,37 +2179,41 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    end
    
    % interpolate array along 1st dimension
-   % inpArr - input 4D array
-   % oldScale - original scale of sampling
-   % newScale - new scale of sampling 
-   function outArr = interpArray(obj,inpArr, oldScale, newScale)
-       Sz = size(inpArr);
-       outArr = zeros(Sz);
-       tmp = zeros(Sz(1),Sz(2));
-
-       reshapeArr = permute(inpArr,[4 3 2 1]);
-       for xInd = 1:size(reshapeArr,1)
-           for yInd = 1:size(reshapeArr,2)
-               disp([num2str(xInd) ' '  num2str(yInd)]);
-               parfor zInd = 1:size(reshapeArr,3)
-                   tmp(:,zInd) =  cast(interp1(oldScale,...
-                       squeeze(reshapeArr(xInd,yInd,zInd,:)),newScale),'single');
-               end
-               outArr(:,:,yInd,xInd) = tmp;
-           end
-       end
-   end   
+   %    inpArr - input file 4D array
+   %    outArr - output file 4D array
+   %    oldScale - original scale of sampling
+   %    newScale - new scale of sampling
    
-   function outArr = interpArrayPar(obj,inpArr, oldScale, newScale)
-       Sz = size(inpArr);
-       reshapeArr = permute(reshape(inpArr,[Sz(1) Sz(2)*Sz(3)*Sz(4)]),[2 1]);
-       outArr = zeros(size(reshapeArr));
-       parfor spatialInd = 1:size(reshapeArr,1)
-           outArr(spatialInd,:) =  cast(interp1(oldScale,reshapeArr(spatialInd,:),newScale),'single');
-       end
-       outArr = permute(outArr, [2 1]);
-       outArr = reshape(outArr,[Sz(1) Sz(2) Sz(3) Sz(4)]);
-   end
+   function interpArray(obj,inpArr,outArr,var,oldScale, newScale)
+       tmp = zeros(obj.xnodes*obj.ynodes,size(oldScale,1));
+       
+       for zInd = 1:obj.znodes
+           str = strcat('inpArr.',var,'(:,:,:,zInd)');
+           inpData3 = reshape(shiftdim(eval(str),1),...
+               [obj.xnodes*obj.ynodes, size(oldScale,1)]);
+           
+           parfor ind = 1:size(inpData3,1)
+               tmp(ind,:) = cast(interp1(oldScale,...
+                       squeeze(inpData3(ind,:)),newScale),'single');
+           end
+           
+           tmp2 = reshape(tmp,[obj.xnodes,obj.ynodes,size(oldScale,1)]);
+           tmp3 = shiftdim(tmp2,2);
+           
+       end    
+       
+       %reshapeArr = permute(inpArr,[4 3 2 1]);
+       %for xInd = 1:size(reshapeArr,1)
+       %    for yInd = 1:size(reshapeArr,2)
+       %        disp([num2str(xInd) ' '  num2str(yInd)]);
+       %        parfor zInd = 1:size(reshapeArr,3)
+       %            tmp(:,zInd) =  cast(interp1(oldScale,...
+       %                squeeze(reshapeArr(xInd,yInd,zInd,:)),newScale),'single');
+       %        end
+       %        outArr(:,:,yInd,xInd) = tmp;
+       %    end
+       %end
+   end   
    
    % save current plot 
    function savePlotAs(obj,fName,handle)
