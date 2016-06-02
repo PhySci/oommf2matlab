@@ -2087,6 +2087,29 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        colormap(jet); colorbar();
        axis xy
        xlabel('X (\mum)');        ylabel('Time (ns)')
+   end
+   
+   
+   function convertFormat(obj)
+       
+       if (exist('Mz.mat'))
+           mfile = matfile('Mz.mat','Writable',true);
+           mfile.M = mfile.Mz;
+           mfile.Mz = [];
+       end
+       
+       if (exist('My.mat'))
+           mfile = matfile('My.mat','Writable',true);
+           mfile.M = mfile.My;
+           mfile.My = [];
+       end
+       
+       if (exist('Mx.mat'))
+           mfile = matfile('Mx.mat','Writable',true);
+           mfile.M = mfile.Mx;
+           mfile.Mx = [];
+       end
+       
    end    
    
    % END OF PUBLIC METHODS
