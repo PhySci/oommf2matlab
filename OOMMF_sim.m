@@ -581,6 +581,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      p.parse(path,varargin{:});
      params = p.Results;
      
+     
      if strcmp(params.savePath,'')
          savePath = path;
      else
@@ -595,7 +596,9 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      elseif (isempty(params.fileExt))
          disp('Unknown physical value');
          return
-     end    
+     end
+     
+     profile on
                 
      fList = obj.getFilesList(path,params.fileBase,params.fileExt);     
      file = fList(1);
@@ -643,15 +646,15 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
              switch (params.value)
                  case 'M'    
                     disp('Write to file');
-                    XFile.Mx(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = cast(XHeap(1:indHeap,1:end,1:end,1:end),'single');
-                    YFile.My(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = cast(YHeap(1:indHeap,1:end,1:end,1:end),'single'); 
-                    ZFile.Mz(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = cast(ZHeap(1:indHeap,1:end,1:end,1:end),'single');
+                    XFile.M(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = cast(XHeap(1:indHeap,1:end,1:end,1:end),'single');
+                    YFile.M(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = cast(YHeap(1:indHeap,1:end,1:end,1:end),'single'); 
+                    ZFile.M(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = cast(ZHeap(1:indHeap,1:end,1:end,1:end),'single');
                     indHeap = 1;
                  case 'H'    
                     disp('Write to file');
-                    XFile.Hx(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = XHeap(1:indHeap,1:end,1:end,1:end);
-                    YFile.Hy(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = YHeap(1:indHeap,1:end,1:end,1:end); 
-                    ZFile.Hz(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = ZHeap(1:indHeap,1:end,1:end,1:end);
+                    XFile.H(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = XHeap(1:indHeap,1:end,1:end,1:end);
+                    YFile.H(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = YHeap(1:indHeap,1:end,1:end,1:end); 
+                    ZFile.H(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = ZHeap(1:indHeap,1:end,1:end,1:end);
                     indHeap = 1;
                  otherwise
                      disp('Unknpwn physical value');
@@ -665,6 +668,10 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
              delete(strcat(obj.fName,'.',fileExt));
          end                       
      end
+     
+     profsave
+     profile viewer
+     
    end
             
    % return slice of space
@@ -783,7 +790,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        obj.getSimParams;
        
        MFile = matfile(fullfile(obj.folder,strcat('M',params.proj,'FFT.mat')));
-       mSize = size(MFile,strcat('Y',params.proj));
+       mSize = size(MFile,'Y');
        
        % process input range parameters
        if (params.xRange == 0)
@@ -805,19 +812,19 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        
        if (strcmp(params.proj,'z'))
-           FFTres = MFile.Yz(freqScaleInd(1):freqScaleInd(2),params.xRange(1):params.xRange(2),...
+           FFTres = MFile.Y(freqScaleInd(1):freqScaleInd(2),params.xRange(1):params.xRange(2),...
                params.yRange(1):params.yRange(2),...
                params.zRange(1):params.zRange(2));
        elseif (strcmp(params.proj,'x'))
-           FFTres = MFile.Yx(freqScaleInd(1):freqScaleInd(2),params.xRange(1):params.xRange(2),...
+           FFTres = MFile.Y(freqScaleInd(1):freqScaleInd(2),params.xRange(1):params.xRange(2),...
                params.yRange(1):params.yRange(2),...`
                params.zRange(1):params.zRange(2));   
        elseif (strcmp(params.proj,'y'))
-           FFTres = MFile.Yy(freqScaleInd(1):freqScaleInd(2),params.xRange(1):params.xRange(2),...
+           FFTres = MFile.Y(freqScaleInd(1):freqScaleInd(2),params.xRange(1):params.xRange(2),...
                params.yRange(1):params.yRange(2),...
                params.zRange(1):params.zRange(2));
        elseif (strcmp(params.proj,'inp'))
-           FFTres = MFile.Yinp(freqScaleInd(1):freqScaleInd(2),params.xRange(1):params.xRange(2),...
+           FFTres = MFile.Y(freqScaleInd(1):freqScaleInd(2),params.xRange(1):params.xRange(2),...
                params.yRange(1):params.yRange(2),...
                params.zRange(1):params.zRange(2));    
        else
@@ -1458,11 +1465,11 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        disp('FFT');
        
        if exist('MxFile','var')
-           arrSize = size(MxFile,'Mx');
+           arrSize = size(MxFile,'M');
        elseif exist('MyFile','var')
-           arrSize = size(MyFile,'My');
+           arrSize = size(MyFile,'M');
        elseif exist('MzFile','var')
-           arrSize = size(MzFile,'Mz');
+           arrSize = size(MzFile,'M');
        elseif exist('MinpFile','var')
            arrSize = size(MinpFile,'Minp');      
        else
@@ -1568,7 +1575,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                disp('Mz');
 
 
-               Mz = MzFile.Mz(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
+               Mz = MzFile.M(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
                if (params.background)
                    disp('Substract background');
                    for timeInd = 1:arrSize(1)
@@ -1590,14 +1597,14 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
 
                disp('Write');
                if mod(arrSize(1),2)
-                   FFTzFile.Yz(1:floor(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
+                   FFTzFile.Y(1:floor(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
                        tmp((ceil(0.5*arrSize(1))+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
-                   FFTzFile.Yz(ceil(0.5*arrSize(1)):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
+                   FFTzFile.Y(ceil(0.5*arrSize(1)):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
                        tmp(1:ceil(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),:);
                else
-                   FFTzFile.Yz(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
+                   FFTzFile.Y(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
                        tmp((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
-                   FFTzFile.Yz((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
+                   FFTzFile.Y((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
                        tmp(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),:);
                end
            end
@@ -1607,7 +1614,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                disp('Minp');
 
 
-               Minp = MinpFile.Minp(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
+               Minp = MinpFile.M(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
 
                % calculate FFT
                disp('FFT');
@@ -1622,14 +1629,14 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
 
                disp('Write');
                if mod(arrSize(1),2)
-                   FFTinpFile.Yinp(1:floor(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
+                   FFTinpFile.Y(1:floor(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
                        tmp((ceil(0.5*arrSize(1))+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
-                   FFTinpFile.Yinp(ceil(0.5*arrSize(1)):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
+                   FFTinpFile.Y(ceil(0.5*arrSize(1)):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
                        tmp(1:ceil(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),:);
                else
-                   FFTinpFile.Yinp(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
+                   FFTinpFile.Y(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
                        tmp((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
-                   FFTinpFile.Yinp((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
+                   FFTinpFile.Y((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
                        tmp(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),:);
                end
            end
@@ -2024,22 +2031,10 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        % interpolate
        switch params.value
-           case 'M'
-               %MFile = matfile('Mx.mat');
-               %OutMFile = matfile('MxInterp.mat');
-               %OutMFile.Mx = obj.interpArray(MFile.Mx, timeScaleOld, timeScaleNew);
-               
-               %MFile = matfile('My.mat');
-               %OutMFile = matfile('MyInterp.mat');
-               %OutMFile.My = obj.interpArray(MFile.My, timeScaleOld, timeScaleNew);
-               
+           case 'M' 
                obj.interpArray(matfile('Mz.mat'), matfile('MzInterp.mat'), 'Mz', timeScaleOld, timeScaleNew);
-               
-               
-               %MFile = matfile('Minp.mat');
-               %OutMFile = matfile('MinpInterp.mat');
-               %OutMFile.Minp = obj.interpArray(MFile.Minp, timeScaleOld, timeScaleNew);
-               
+               %obj.interpArray(matfile('Mx.mat'), matfile('MxInterp.mat'), 'Mz', timeScaleOld, timeScaleNew);
+               %obj.interpArray(matfile('My.mat'), matfile('MyInterp.mat'), 'Mz', timeScaleOld, timeScaleNew);
            case 'H'
                MFile = matfile('Hx.mat');
                OutMFile = matfile('HxInterp.mat');
@@ -2074,7 +2069,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        obj.getSimParams();
        
        MFile = matfile('Mz.mat');
-       data = MFile.Mz(:,:,params.ySlice,params.zSlice);
+       data = MFile.M(1200:end,:,params.ySlice,params.zSlice);
        xScale = linspace(obj.xmin,obj.xmax,obj.xnodes)/1e-6;
        timeScale = linspace(0,obj.dt*size(data,1),size(data,1))/1e-9;
        
@@ -2088,6 +2083,47 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        xlabel('X (\mum)');        ylabel('Time (ns)')
    end
    
+   
+   % plot slice of magnetization along OX axis and spatial FFT
+   
+   function plotLinSlice(obj,varargin)
+       p = inputParser;
+       
+       p.addParamValue('ySlice',16,@isnumeric);
+       p.addParamValue('zSlice',8,@isnumeric);
+       p.addParamValue('timeFrame',984,@isnumeric);
+
+       p.parse(varargin{:});      
+       params = p.Results;      
+       obj.getSimParams();
+       
+       mFile = matfile('Mz');
+       M = mFile.M(params.timeFrame,:,params.ySlice,params.zSlice)-...
+           mFile.M(1,:,params.ySlice,params.zSlice);
+      
+       xScale = linspace(obj.xmin,obj.xmax,obj.xnodes)/1e-6;
+       
+       kScale = obj.getWaveScale(obj.xstepsize,obj.xnodes)*1e-6;
+       amp = abs(fftshift(fft(M(:))));
+       
+       % plot results
+       subplot(211)
+           plot(xScale,M)
+           xlabel('x (\mum)','FontSize',14,'FontName','Times','FontWeight','bold');
+           ylabel('M_z (A/m)','FontName','Times','FontWeight','bold')
+           xlim([min(xScale) max(xScale)]);
+       
+       subplot(212)
+           plot(kScale,amp)
+           xlim([0 2])
+           xlim([0 1.2])
+           xlabel('k (rad/\mum)','FontSize',14,'FontName','Times','FontWeight','bold')
+           ylabel('Spectral density (arb. units)','FontSize',14,'FontName','Times','FontWeight','bold')
+           savefig(gcf,'slice.fig')
+
+       print(gcf,'-dpng','-r600','linSlice.png');
+   end    
+       
    
    function convertFormat(obj)
        
@@ -2209,33 +2245,21 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    
    function interpArray(obj,inpArr,outArr,var,oldScale, newScale)
        tmp = zeros(obj.xnodes*obj.ynodes,size(oldScale,1));
+       outArr.M = single.empty(0,0,0,0);
        
-       for zInd = 1:obj.znodes
-           str = strcat('inpArr.',var,'(:,:,:,zInd)');
-           inpData3 = reshape(shiftdim(eval(str),1),...
-               [obj.xnodes*obj.ynodes, size(oldScale,1)]);
+       for yInd = 1:obj.ynodes
+           inpData3 = reshape(shiftdim(inpArr.Mz(:,:,yInd,:),1),...
+               [obj.xnodes*obj.znodes, size(oldScale,1)]);
            
            parfor ind = 1:size(inpData3,1)
                tmp(ind,:) = cast(interp1(oldScale,...
                        squeeze(inpData3(ind,:)),newScale),'single');
            end
            
-           tmp2 = reshape(tmp,[obj.xnodes,obj.ynodes,size(oldScale,1)]);
-           tmp3 = shiftdim(tmp2,2);
-           
+           tmp2 = reshape(tmp,[obj.xnodes,1,obj.znodes,size(oldScale,1)]);
+           outArr.M(1:size(oldScale,1),1:obj.xnodes,yInd,1:obj.znodes) = shiftdim(tmp2,3); 
        end    
-       
-       %reshapeArr = permute(inpArr,[4 3 2 1]);
-       %for xInd = 1:size(reshapeArr,1)
-       %    for yInd = 1:size(reshapeArr,2)
-       %        disp([num2str(xInd) ' '  num2str(yInd)]);
-       %        parfor zInd = 1:size(reshapeArr,3)
-       %            tmp(:,zInd) =  cast(interp1(oldScale,...
-       %                squeeze(reshapeArr(xInd,yInd,zInd,:)),newScale),'single');
-       %        end
-       %        outArr(:,:,yInd,xInd) = tmp;
-       %    end
-       %end
+
    end   
    
    % save current plot 
