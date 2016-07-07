@@ -790,7 +790,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        obj.getSimParams;
        
        MFile = matfile(fullfile(obj.folder,strcat('M',params.proj,'FFT.mat')));
-       mSize = size(MFile,'Y');
+       mSize = size(MFile,'Yz');
        
        % process input range parameters
        if (params.xRange == 0)
@@ -812,7 +812,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        
        if (strcmp(params.proj,'z'))
-           FFTres = MFile.Y(freqScaleInd(1):freqScaleInd(2),params.xRange(1):params.xRange(2),...
+           FFTres = MFile.Yz(freqScaleInd(1):freqScaleInd(2),params.xRange(1):params.xRange(2),...
                params.yRange(1):params.yRange(2),...
                params.zRange(1):params.zRange(2));
        elseif (strcmp(params.proj,'x'))
@@ -2055,7 +2055,6 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    
    %% Plot surface coordinate-time
    % Useful for visualization of propagation of spin waves
-   
    function plotWaveSurf(obj,varargin)
        % read input patameters
        
@@ -2084,8 +2083,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    end
    
    
-   % plot slice of magnetization along OX axis and spatial FFT
-   
+   % plot slice of magnetization along OX axis and spatial FFT  
    function plotLinSlice(obj,varargin)
        p = inputParser;
        
@@ -2100,7 +2098,10 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        mFile = matfile('Mz');
        M = mFile.M(params.timeFrame,:,params.ySlice,params.zSlice)-...
            mFile.M(1,:,params.ySlice,params.zSlice);
-      
+       
+       w = window(@gausswin,10);
+       M = conv(M,w,'same');
+       
        xScale = linspace(obj.xmin,obj.xmax,obj.xnodes)/1e-6;
        
        kScale = obj.getWaveScale(obj.xstepsize,obj.xnodes)*1e-6;
