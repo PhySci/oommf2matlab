@@ -327,23 +327,62 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    % Plot vector plot of magnetisation in XY plane
    % z is number of plane
    % should be rewritted 
-   function plotMSurfXY(obj,slice,proj,varargin)
+   function plotMSurfXY(obj,varargin)
      p = inputParser;
-     p.addRequired('slice',@isnumeric);
-     p.addRequired('proj',@ischar);
+     p.addParamValue('slice',8,@isnumeric);
+     p.addParamValue('proj',@ischar);
      
      p.addParamValue('saveAs','',@isstr);
      p.addParamValue('colourRange',0,@isnumeric);
-     p.addParamValue('xrange',':',@isnumeric);
-     p.addParamValue('yrange',':',@isnumeric);
+     p.addParamValue('xRange',0,@isnumeric);
+     p.addParamValue('yRange',0,@isnumeric);
+     p.addParamValue('timeFrame',1,@isnumeric);
      
-     p.parse(slice,proj,varargin{:});
+     p.parse(varargin{:});
      params = p.Results;
        
-     handler = obj.abstractPlot('Z',params.slice,params.proj,...
-         'saveImg',params.saveImg,'saveImgPath',params.saveImgPath,...
-         'colourRange',params.colourRange,'showScale',params.showScale,...
-         'xrange',params.xrange,'yrange',params.yrange);                  
+     mFile = matfile('Mz.mat');
+     sizeArr = size(mFile,'M');
+     
+     obj.getSimParams();
+     
+     if (params.xRange == 0)
+         params.xRange = [1 sizeArr(2)];
+     end    
+     
+     if (params.yRange == 0)
+         params.yRange = [1 sizeArr(3)];
+     end    
+     
+     % read data
+     data = squeeze(mFile.M(params.timeFrame,params.xRange(1):params.xRange(2),...
+         params.yRange(1):params.yRange(2),params.slice)).';
+     data0 = squeeze(mFile.M(2040,params.xRange(1):params.xRange(2),...
+         params.yRange(1):params.yRange(2),params.slice)).';
+     data = data - data0;
+     
+     % filtering
+     winSize = 20;
+     G = fspecial('gaussian',[winSize winSize],0.9);
+     data = imfilter(data,G,'circular','same','conv');
+     
+     % calculate scales
+     xScale = linspace(obj.xmin,obj.xmax,obj.xnodes);
+     xScale = xScale(params.xRange(1):params.xRange(2))*1e6;
+     
+     yScale = linspace(obj.ymin,obj.ymax,obj.ynodes);
+     yScale = yScale(params.yRange(1):params.yRange(2))*1e6;
+     
+     % plot data
+     imagesc(xScale,yScale,data);
+     axis xy equal
+     xlim([xScale(1) xScale(end)]); ylim([yScale(1) yScale(end)]);
+     %colorbar();
+     set(gca,'FontSize',16,'FontName','Times','FontWeight','bold');
+     xlabel('x (\mum)','FontSize',20); ylabel('y (\mum)','FontSize',20); 
+     
+     % save image
+     obj.savePlotAs(params.saveAs,gcf);
    end
    
    % plot vector plot of magnetisation in XY plane
@@ -790,7 +829,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        obj.getSimParams;
        
        MFile = matfile(fullfile(obj.folder,strcat('M',params.proj,'FFT.mat')));
-       mSize = size(MFile,'Yz');
+       mSize = size(MFile,'Y');
        
        % process input range parameters
        if (params.xRange == 0)
@@ -812,7 +851,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        
        if (strcmp(params.proj,'z'))
-           FFTres = MFile.Yz(freqScaleInd(1):freqScaleInd(2),params.xRange(1):params.xRange(2),...
+           FFTres = MFile.Y(freqScaleInd(1):freqScaleInd(2),params.xRange(1):params.xRange(2),...
                params.yRange(1):params.yRange(2),...
                params.zRange(1):params.zRange(2));
        elseif (strcmp(params.proj,'x'))
@@ -929,19 +968,18 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        imagesc(waveVectorScale,freqScale,res);
             
        colormap(jet); axis xy;
-       xlabel(strcat('Wave vector k_',directionLabel,' (rad/\mum)'),'FontSize',16,'FontName','Times');
-       ylabel('Frequency (GHz)','FontSize',16,'FontName','Times');
+       set(gca,'FontSize',16,'FontName','Times');
+       xlabel(strcat('Wave vector k_',directionLabel,' (rad/\mum)'));
+       ylabel('Frequency (GHz)');
        xlim([min(waveVectorScale) max(waveVectorScale)]);
        
        
        t = colorbar('peer',gca);
-       set(get(t,'ylabel'),'FontSize',16,'FontName','Times');
        if (strcmp(params.scale,'log'))
            set(get(t,'ylabel'),'String', 'FFT intensity (dB)');
        else
            set(get(t,'ylabel'),'String', 'Intensity (arb. units)');
        end    
-       set(gca,'FontSize',14,'FontName','Times');
        
        % save img
        obj.savePlotAs(params.saveAs,gcf);       
@@ -981,7 +1019,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        % assign file of FFT of Mz
        MzFFTFile = matfile(fullfile(obj.folder,'MzFFT.mat'));
-       MzFFTSize = size(MzFFTFile,'Yz');
+       MzFFTSize = size(MzFFTFile,'Y');
        
        % process range parameters
        if (params.xRange  == 0)
@@ -1005,7 +1043,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        shiftFreqScale = ifftshift(freqScale);
        [~,freqInd] = min(abs(shiftFreqScale-params.freq));
        
-       fftSlice = MzFFTFile.Yz(freqInd,params.xRange(1):params.xRange(2),...
+       fftSlice = MzFFTFile.Y(freqInd,params.xRange(1):params.xRange(2),...
            params.yRange(1):params.yRange(2),params.zSlice);
        
        if (size(fftSlice,4)>1)
@@ -1047,6 +1085,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                %cbunits('dB');
            else
                imagesc(yScale,xScale,Amp,[0 1.05*max(Amp(:))]);
+               axis xy equal;
                hcb = colorbar('EastOutside');
                %cbunits('a.u.');
            end    
@@ -1073,8 +1112,8 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
           
        
        % save figure
-       obj.savePlotAs(params.saveAs,strcmp(fg1,'-amp'));
-       obj.savePlotAs(params.saveAs,strcmp(fg1,'-phase'));
+       obj.savePlotAs(params.saveAs,fg1,'suffix','-amp');
+       obj.savePlotAs(params.saveAs,fg2,'suffix','-phase');
    end 
    
    
@@ -1108,7 +1147,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
 
        % assign file of FFT of Mz
        FFTFile = matfile(fullfile(obj.folder,strcat('M',params.proj,'FFT.mat')));    
-       arrSize = size(FFTFile,strcat('Y',params.proj));
+       arrSize = size(FFTFile,'Y');
 
        % process parameters
        if (~params.xRange)
@@ -1151,7 +1190,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                    params.zRange(1):params.zRange(2)));
                
            case 'z'
-               fftSlice = squeeze(FFTFile.Yz(freqInd,...
+               fftSlice = squeeze(FFTFile.Y(freqInd,...
                    params.xRange(1):params.xRange(2),...
                    params.ySlice,...
                    params.zRange(1):params.zRange(2)));
@@ -1169,16 +1208,16 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        end
        
        if params.rotate
-           xScaleName = 'Z (\mum)';
-           yScaleName = 'X, (\mum)';  
+           xScaleName = 'z (\mum)';
+           yScaleName = 'x, (\mum)';  
        else
            Amp = Amp.';
            Phase = Phase.';
            tmp = xScale;
            xScale = zScale;
            zScale = tmp;
-           xScaleName = 'X (\mum)';
-           yScaleName = 'Z (\mum)';
+           xScaleName = 'x (mm)';
+           yScaleName = 'z (\mum)';
        end
        
        % plot amplitude map
@@ -1190,42 +1229,47 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                    ref = 1;
                end
                val = log10(Amp);
-               imagesc(zScale,xScale,val,[0 max(val(:))]);
+               imagesc(zScale/1e3,xScale,val,[0 max(val(:))]);
                hcb =colorbar('EastOutside');
-               %cbunits('dB');
                obj.setDbColorbar('Spectral density (dB)');
            else
-               imagesc(zScale,xScale,Amp,[0 max(Amp(:))]);
+               imagesc(zScale/1e3,xScale,Amp,[0 max(Amp(:))]);
                hcb = colorbar('EastOutside');
-               %cbunits('a.u.');
                obj.setDbColorbar('Spectral density (arb. units)');
            end
 
-           title(['Spectral density of FFT, \nu = ' num2str(params.freq) ' GHz'],...
-               'FontSize',20,'FontName','Times');
-           axis xy; colormap(flipud(gray)); 
+          % title(['Spectral density of FFT, \nu = ' num2str(params.freq) ' GHz'],...
+          %     'FontSize',20,'FontName','Times');
+           axis xy; colormap(jet); 
            xlabel(xScaleName); ylabel(yScaleName); 
-           %freezeColors;
-           %cbfreeze;
-
+           set(gca,'FontSize',18,'FontWeight','bold','FontName','Times');
+           
             % save figure
            if ~isempty(params.saveAs)
                 obj.savePlotAs(strcat(params.saveAs,'-amp'),gcf); 
            end    
            
        fg2 = figure(2);
-           imagesc(zScale,xScale,Phase);
-           title(['Phase of FFT, \nu = ' num2str(params.freq) ' GHz'],...
-               'FontSize',20,'FontName','Times');
+           imagesc(zScale/1e3,xScale,Phase);
+          % title(['Phase of FFT, \nu = ' num2str(params.freq) ' GHz'],...
+          %     'FontSize',20,'FontName','Times');
            axis xy; colorbar('EastOutside');
            %cblabel('rad.');
            colormap(hsv);
            xlabel(xScaleName); ylabel(yScaleName); 
-           obj.setDbColorbar('Phase (rad)')
+           obj.setDbColorbar('Phase (rad)');
+           set(gca,'FontSize',18,'FontWeight','bold','FontName','Times');
+           
            % save figure
            if ~isempty(params.saveAs)
                obj.savePlotAs(strcat(params.saveAs,'-phase'),gcf); 
            end
+           
+       fg3 = figure(3);
+           mod = val;
+           mod(isinf(mod)) = 0;
+           slice = mean(mod);
+           plot(zScale/1e3,slice);
    end 
      
    % plot average dependence of FFT intensity on frequency
@@ -1252,7 +1296,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        FFTFile = matfile('MzFFT.mat'); 
        
-       mSize = size(FFTFile,strcat('Y',params.proj));
+       mSize = size(FFTFile,'Y');
        % process input range parameters
        if (params.xRange == 0)
            params.xRange = [1 mSize(2)];
@@ -1274,7 +1318,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        freqScale = freqScale(freqScaleInd(1):freqScaleInd(2));
        
        
-       FFT = FFTFile.Yz(freqScaleInd(1):freqScaleInd(2),...
+       FFT = FFTFile.Y(freqScaleInd(1):freqScaleInd(2),...
            params.xRange(1):params.xRange(2),...
            params.yRange(1):params.yRange(2),...
            params.zRange(1):params.zRange(2));
@@ -1289,6 +1333,8 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        end
        xlim(params.freqLimit); xlabel('Frequency (GHz)');
        %num2clip([freqScale(find(freqScale>=0)).' Amp(find(freqScale>=0))]);
+       
+       set(gca,'FontName','Times','FontSize',16);
        
        % save figure
        obj.savePlotAs(params.saveAs,gcf);
@@ -1479,7 +1525,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        % process chunk
        if (params.chunk)
-           zStep = 4
+           zStep = 16
            chunkAmount = arrSize(4)/zStep
        else     
            zStep = arrSize(4)
@@ -2055,6 +2101,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    
    %% Plot surface coordinate-time
    % Useful for visualization of propagation of spin waves
+   % startTime - first time point to display (ns)
    function plotWaveSurf(obj,varargin)
        % read input patameters
        
@@ -2062,24 +2109,36 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        p.addParamValue('zSlice',1,@isnumeric);
        p.addParamValue('ySlice',1,@isnumeric);
        p.addParamValue('limit',0,@isnumeric);
+       p.addParamValue('saveAs','',@isstr);
+       p.addParamValue('startTime',0,@isnumeric);
+       
        p.parse(varargin{:});      
        params = p.Results;
        
        obj.getSimParams();
        
+       timeInd = ceil(params.startTime*(1e-9)/obj.dt);
+       
+       if (timeInd == 0)
+           timeInd = 1;
+       end    
+       
        MFile = matfile('Mz.mat');
-       data = MFile.M(1200:end,:,params.ySlice,params.zSlice);
+       data = MFile.M(timeInd:end,:,params.ySlice,params.zSlice);
        xScale = linspace(obj.xmin,obj.xmax,obj.xnodes)/1e-6;
-       timeScale = linspace(0,obj.dt*size(data,1),size(data,1))/1e-9;
+       timeScale = linspace(obj.dt*timeInd,obj.dt*(size(data,1)+timeInd),size(data,1))/1e-9;
        
        if params.limit ==0
-           params.limit = max(abs(data(:)))
+           params.limit = max(abs(data(:)));
        end
        
        imagesc(xScale,timeScale,data,[-params.limit params.limit]);
+       set(gca,'FontName','Times','FontSize',16,'FontWeight','bold');
        colormap(jet); colorbar();
        axis xy
-       xlabel('X (\mum)');        ylabel('Time (ns)')
+       xlabel('X (\mum)'); ylabel('Time (ns)')
+       
+        obj.savePlotAs(params.saveAs,gcf);
    end
    
    
@@ -2090,39 +2149,48 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        p.addParamValue('ySlice',16,@isnumeric);
        p.addParamValue('zSlice',8,@isnumeric);
        p.addParamValue('timeFrame',984,@isnumeric);
+       p.addParamValue('saveAs','',@isstr);
 
        p.parse(varargin{:});      
        params = p.Results;      
        obj.getSimParams();
+       static = obj.getStatic(pwd);
        
        mFile = matfile('Mz');
-       M = mFile.M(params.timeFrame,:,params.ySlice,params.zSlice)-...
-           mFile.M(1,:,params.ySlice,params.zSlice);
+       width = 2;
+       M0 = squeeze(mFile.M(params.timeFrame,:,(params.ySlice-width):(params.ySlice+width),params.zSlice)-...
+           mFile.M(1,:,(params.ySlice-width):(params.ySlice+width),params.zSlice));
        
-       w = window(@gausswin,10);
-       M = conv(M,w,'same');
        
-       xScale = linspace(obj.xmin,obj.xmax,obj.xnodes)/1e-6;
+       w1 = window(@gausswin,size(M0,2));
+       w1 = w1/sum(w1);
+       M0 = M0*w1;
        
+       w2= window(@gausswin,9);
+       w2 = w2/sum(w2);
+       M = conv(M0,w2,'same');
+       
+       xScale = linspace(obj.xmin,obj.xmax,obj.xnodes)/1e-6;     
        kScale = obj.getWaveScale(obj.xstepsize,obj.xnodes)*1e-6;
+       
+       amp0 = abs(fftshift(fft(M0(:))));
        amp = abs(fftshift(fft(M(:))));
        
        % plot results
        subplot(211)
-           plot(xScale,M)
+           plot(xScale,M);
            xlabel('x (\mum)','FontSize',14,'FontName','Times','FontWeight','bold');
            ylabel('M_z (A/m)','FontName','Times','FontWeight','bold')
            xlim([min(xScale) max(xScale)]);
        
        subplot(212)
-           plot(kScale,amp)
-           xlim([0 2])
-           xlim([0 1.2])
+           plot(kScale,amp);
+           xlim([0 1.2]);
            xlabel('k (rad/\mum)','FontSize',14,'FontName','Times','FontWeight','bold')
            ylabel('Spectral density (arb. units)','FontSize',14,'FontName','Times','FontWeight','bold')
            savefig(gcf,'slice.fig')
 
-       print(gcf,'-dpng','-r600','linSlice.png');
+       obj.savePlotAs(params.saveAs,gcf);
    end    
        
    
@@ -2249,7 +2317,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        outArr.M = single.empty(0,0,0,0);
        
        for yInd = 1:obj.ynodes
-           inpData3 = reshape(shiftdim(inpArr.Mz(:,:,yInd,:),1),...
+           inpData3 = reshape(shiftdim(inpArr.M(:,:,yInd,:),1),...
                [obj.xnodes*obj.znodes, size(oldScale,1)]);
            
            parfor ind = 1:size(inpData3,1)
@@ -2264,10 +2332,18 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    end   
    
    % save current plot 
-   function savePlotAs(obj,fName,handle)
-       if (~strcmp(fName,''))
-           savefig(handle,strcat(fName,'.fig'));
-           print(handle,'-dpng',strcat(fName,'.png'));
+   function savePlotAs(obj,varargin)
+       p = inputParser;
+       p.addRequired('fName',@isstr);
+       p.addRequired('handle');
+       p.addParameter('suffix','',@isstr);
+       
+       p.parse(varargin{:});      
+       params = p.Results;
+       
+       if (~strcmp(params.fName,''))
+           savefig(params.handle,strcat(params.fName,params.suffix,'.fig'));
+           print(params.handle,'-dpng',strcat(params.fName,params.suffix,'.png'));
        end
    end 
    
