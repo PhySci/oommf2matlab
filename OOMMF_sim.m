@@ -2178,19 +2178,24 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        % plot results
        subplot(211)
-           plot(xScale,M);
+           plot(xScale,M,'LineWidth',2);
            xlabel('x (\mum)','FontSize',14,'FontName','Times','FontWeight','bold');
            ylabel('M_z (A/m)','FontName','Times','FontWeight','bold')
-           xlim([min(xScale) max(xScale)]);
+           %xlim([min(xScale) max(xScale)]);
+           xlim([0 40])
+           ylim([-180 180])
        
-       subplot(212)
-           plot(kScale,amp);
-           xlim([0 1.2]);
-           xlabel('k (rad/\mum)','FontSize',14,'FontName','Times','FontWeight','bold')
-           ylabel('Spectral density (arb. units)','FontSize',14,'FontName','Times','FontWeight','bold')
-           savefig(gcf,'slice.fig')
-
+       %subplot(212)
+       %    plot(kScale,amp);
+       %    xlim([0 1.2]);
+       %    xlabel('k (rad/\mum)','FontSize',14,'FontName','Times','FontWeight','bold')
+       %    ylabel('Spectral density (arb. units)','FontSize',14,'FontName','Times','FontWeight','bold')
+       
+       set(gca,'LineWidth',3,'TickLength',[0.015 0.015]);
+       set(gca,'FontName','Times','FontSize',14,'FontWeight','bold');
+       
        obj.savePlotAs(params.saveAs,gcf);
+       print(gcf,'-depsc2','slice.eps');
    end    
        
    

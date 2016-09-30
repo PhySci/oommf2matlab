@@ -140,18 +140,17 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
      
      Y = fftshift(abs(fft(obj.Mz(1:end))));
      
-     
      if strcmp(params.scale,'norm')
        plot(obj.freqScale/1e9,Y);
      else
-       semilogy(obj.freqScale/1e9,Y);  
+       semilogy(obj.freqScale/1e9,Y,obj.freqScale/1e9,Y2);  
      end    
-     xlabel('Frequency (GHz)'); 
+     xlabel('Frequency (GHz)','FontSize',18,'FontName','Times','FontWeight','bold'); 
      xlim([params.freqLim(1) params.freqLim(2)]);
-     ylabel('SD (arb. units)');
-     title('FFT of M_z projection');
+     ylabel('SD (arb. units)','FontSize',18,'FontName','Times','FontWeight','bold');
+    % title('FFT of M_z projection');
      
-     set(gca,'FontSize',18,'FontName','Times','FontWeight','bold');
+     set(gca,'FontSize',14,'FontName','Times','FontWeight','bold');
      
      % save img
      if (~strcmp(params.saveAs,''))
@@ -224,19 +223,47 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
    end    
    
    % plot time dependece of Mz magnetization
-   % - 
+   % params: 
+   %        addExp - plot double-Y plot 
    function plotMz(obj,varargin)
        
        p = inputParser;
        p.addParamValue('saveAs','',@isstr);
+       p.addParamValue('addExp',false,@islogical);
+       p.addParamValue('tMax',0,@isnumeric);
        p.parse(varargin{:});
-       params = p.Results; 
+       params = p.Results;
        
-       plot(obj.time/1e-9,obj.Mz);
-       xlim([0 1.01* obj.time(end)/1e-9]);
-       xlabel('Time (ns)'); ylabel('M_z (arb. units)');
+       if (params.tMax == 0)
+           params.tMax = obj.time(end)/1e-9;
+       end    
        
-       set(gca,'FontSize',18,'FontName','Times','FontWeight','bold');
+       if params.addExp
+           A = 1;
+           h = A*exp(-10./(6.60e9*obj.time));
+           [hAx,H1,H2] = plotyy(obj.time/1e-9,obj.Mz,obj.time/1e-9,h);
+           ylabel(hAx(1),'M_z (arb. units)','FontSize',18,'FontName','Times','FontWeight','bold');
+           ylabel(hAx(2),'A (Oe)','FontSize',18,'FontName','Times','FontWeight','bold');
+           xlabel('Time (ns)','FontSize',18,'FontName','Times','FontWeight','bold');
+           % set font styles
+           set(hAx(1),'FontSize',16,'FontName','Times','FontWeight','bold');
+           set(hAx(1),'YTick',[-2e-5, 0, 2e-5]);
+           set(hAx(2),'FontSize',16,'FontName','Times','FontWeight','bold');
+           % set X limits
+           xlim(hAx(1),[0, params.tMax]);
+           xlim(hAx(2),[0, params.tMax]);
+           % set Y limits
+           ylim(hAx(1),[1.1*min(obj.Mz), 1.1*max(obj.Mz)]);
+           ylim(hAx(2),[-1.1*A, 1.1*A]);
+           
+           set(H2,'LineWidth',3)
+       else
+           plot(obj.time/1e-9,obj.Mz);
+           xlim([0 1.01* obj.time(end)/1e-9]);
+           xlabel('Time (ns)','FontSize',18,'FontName','Times','FontWeight','bold');
+           ylabel('M_z (arb. units)','FontSize',18,'FontName','Times','FontWeight','bold');
+           set(gca,'FontSize',16,'FontName','Times','FontWeight','bold');    
+       end
        
        if (~strcmp(params.saveAs,''))
            savefig(strcat(params.saveAs,'.fig'));
