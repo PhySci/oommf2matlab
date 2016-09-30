@@ -775,18 +775,18 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    end
    
    function res = getIndex(obj,symb)
-   if (strcmp(symb,'X'))
-      res = 1;
-   elseif (strcmp(symb,'Y'))
-      res = 2;
-   elseif (strcmp(symb,'Z'))
-      res = 3;
-   elseif (strcmp(symb,':'))
-      res = ':'; 
-   else
-      disp('Unknown index');
-      return;
-   end    
+       if (strcmp(symb,'X'))
+           res = 1;
+       elseif (strcmp(symb,'Y'))
+           res = 2;
+       elseif (strcmp(symb,'Z'))
+           res = 3;
+       elseif (strcmp(symb,':'))
+           res = ':';
+       else
+           disp('Unknown index');
+           return;
+       end
    end
     
    % plot dispersion curve along X axis
