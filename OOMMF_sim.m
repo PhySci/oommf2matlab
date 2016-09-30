@@ -1237,13 +1237,19 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                hcb = colorbar('EastOutside');
                obj.setDbColorbar('Spectral density (arb. units)');
            end
+           colormap(flipud(parula));
 
           % title(['Spectral density of FFT, \nu = ' num2str(params.freq) ' GHz'],...
           %     'FontSize',20,'FontName','Times');
-           axis xy; colormap(jet); 
+           axis xy; 
            xlabel(xScaleName); ylabel(yScaleName); 
            set(gca,'FontSize',18,'FontWeight','bold','FontName','Times');
            
+           
+           % define size of the figure
+           pos = get(fg1,'position');
+           set(fg1,'position',[pos(1),pos(1),1000,400])
+           set(fg1, 'PaperPosition', [0 0 20 8]);
             % save figure
            if ~isempty(params.saveAs)
                 obj.savePlotAs(strcat(params.saveAs,'-amp'),gcf); 
@@ -1260,16 +1266,36 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            obj.setDbColorbar('Phase (rad)');
            set(gca,'FontSize',18,'FontWeight','bold','FontName','Times');
            
+           % define size of the figure
+           pos = get(fg2,'position');
+           set(fg2,'position',[pos(1),pos(1),1000,400])
+           set(fg2, 'PaperPosition', [0 0 20 8]);
+         
            % save figure
            if ~isempty(params.saveAs)
                obj.savePlotAs(strcat(params.saveAs,'-phase'),gcf); 
            end
            
        fg3 = figure(3);
-           mod = val;
+           mod = Amp;
            mod(isinf(mod)) = 0;
-           slice = mean(mod);
-           plot(zScale/1e3,slice);
+           sliceAbs = mean(mod);
+           
+           plot(zScale/1e3,sliceAbs);
+           xlabel(xScaleName); xlim([min(zScale/1e3) max(zScale/1e3)])
+           ylabel('Average SD (arb. units)');
+           set(gca,'FontSize',18,'FontWeight','bold','FontName','Times');
+           % define size of the figure
+           pos = get(fg3,'position');
+           set(fg3,'position',[pos(1),pos(1),1000,400])
+           set(fg3, 'PaperPosition', [0 0 20 8]);
+         
+           % save figure
+           if ~isempty(params.saveAs)
+               obj.savePlotAs(strcat(params.saveAs,'-powerAbs'),gcf); 
+           end
+           
+       save data.mat Amp Phase sliceAbs    
    end 
      
    % plot average dependence of FFT intensity on frequency
@@ -1322,7 +1348,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            params.xRange(1):params.xRange(2),...
            params.yRange(1):params.yRange(2),...
            params.zRange(1):params.zRange(2));
-       Amp = abs(mean(mean(mean(FFT,4),3),2));
+       Amp = (mean(mean(mean(abs(FFT),4),3),2));
        
        if (strcmp(params.scale,'norm'))
            plot(freqScale,Amp);
@@ -1525,7 +1551,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        % process chunk
        if (params.chunk)
-           zStep = 16
+           zStep = 8
            chunkAmount = arrSize(4)/zStep
        else     
            zStep = arrSize(4)
@@ -2078,7 +2104,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        % interpolate
        switch params.value
            case 'M' 
-               obj.interpArray(matfile('Mz.mat'), matfile('MzInterp.mat'), 'Mz', timeScaleOld, timeScaleNew);
+               obj.interpArray(matfile('Mz.mat'), matfile('MzInterp.mat'), timeScaleOld, timeScaleNew);
                %obj.interpArray(matfile('Mx.mat'), matfile('MxInterp.mat'), 'Mz', timeScaleOld, timeScaleNew);
                %obj.interpArray(matfile('My.mat'), matfile('MyInterp.mat'), 'Mz', timeScaleOld, timeScaleNew);
            case 'H'
@@ -2141,39 +2167,62 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
         obj.savePlotAs(params.saveAs,gcf);
    end
    
-   
-   % plot slice of magnetization along OX axis and spatial FFT  
+   %% plot slice of magnetization along OX axis and spatial FFT  
+   % params:
+   %     ySlice    - number of slice along OY axis
+   %     zSlice    - number of slice along OZ axis
+   %     timeFrame - number of time frame
+   %     saveAs    - name of output graphical files
    function plotLinSlice(obj,varargin)
        p = inputParser;
        
-       p.addParamValue('ySlice',16,@isnumeric);
+       p.addParamValue('ySlice',[10 20],@isnumeric);
        p.addParamValue('zSlice',8,@isnumeric);
        p.addParamValue('timeFrame',984,@isnumeric);
        p.addParamValue('saveAs','',@isstr);
-
+       p.addParamValue('baseline',true,@islogical);
+        
+       % experimental parameters
+       spotSize = 400e-9; % nm
+       
        p.parse(varargin{:});      
        params = p.Results;      
        obj.getSimParams();
-       static = obj.getStatic(pwd);
        
        mFile = matfile('Mz');
-       width = 2;
-       M0 = squeeze(mFile.M(params.timeFrame,:,(params.ySlice-width):(params.ySlice+width),params.zSlice)-...
-           mFile.M(1,:,(params.ySlice-width):(params.ySlice+width),params.zSlice));
+       M = squeeze(mFile.M(params.timeFrame,:,params.ySlice(1):params.ySlice(2),params.zSlice)-...
+                     mFile.M(1,:,params.ySlice(1):params.ySlice(2),params.zSlice));
        
+       % subtract baseline
+       if params.baseline
+           M = M - mean(M(:));
+       end    
        
-       w1 = window(@gausswin,size(M0,2));
-       w1 = w1/sum(w1);
-       M0 = M0*w1;
+       % Gauss window along OY axis
+       gaussWidth = floor(spotSize/obj.ystepsize);
+       w1= window(@gausswin,gaussWidth);
+       w1 = w1/sum(w1); % normalize window function
+       for xInd = 1:size(M,1)
+           M(xInd,:) = conv(M(xInd,:),w1,'same');
+       end    
+       M = mean(M,2);
        
-       w2= window(@gausswin,9);
+       % Gauss window along OX axis
+       gaussWidth = floor(spotSize/obj.xstepsize);
+       w2= window(@gausswin,gaussWidth);
+       w2 = w2/sum(w2);  % normalize window function
+       M = conv(M,w2,'same');
+       
+       % Gauss window along OX axis
+       gaussWidth = floor(spotSize/obj.xstepsize);
+       w2= window(@gausswin,gaussWidth);
        w2 = w2/sum(w2);
-       M = conv(M0,w2,'same');
+       M = conv(M,w2,'same');
        
        xScale = linspace(obj.xmin,obj.xmax,obj.xnodes)/1e-6;     
        kScale = obj.getWaveScale(obj.xstepsize,obj.xnodes)*1e-6;
        
-       amp0 = abs(fftshift(fft(M0(:))));
+       % amp0 = abs(fftshift(fft(M0(:))));
        amp = abs(fftshift(fft(M(:))));
        
        % plot results
@@ -2185,15 +2234,13 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            xlim([0 40])
            ylim([-180 180])
        
-       %subplot(212)
-       %    plot(kScale,amp);
-       %    xlim([0 1.2]);
-       %    xlabel('k (rad/\mum)','FontSize',14,'FontName','Times','FontWeight','bold')
-       %    ylabel('Spectral density (arb. units)','FontSize',14,'FontName','Times','FontWeight','bold')
-       
-       set(gca,'LineWidth',3,'TickLength',[0.015 0.015]);
-       set(gca,'FontName','Times','FontSize',14,'FontWeight','bold');
-       
+       subplot(212)
+           plot(2*pi*kScale,amp);
+           xlim([0 5]);
+           xlabel('k (rad/\mum)','FontSize',14,'FontName','Times','FontWeight','bold')
+           ylabel('Spectral density (arb. units)','FontSize',14,'FontName','Times','FontWeight','bold')
+           savefig(gcf,'slice.fig')
+
        obj.savePlotAs(params.saveAs,gcf);
        print(gcf,'-depsc2','slice.eps');
    end    
@@ -2317,8 +2364,8 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    %    oldScale - original scale of sampling
    %    newScale - new scale of sampling
    
-   function interpArray(obj,inpArr,outArr,var,oldScale, newScale)
-       tmp = zeros(obj.xnodes*obj.ynodes,size(oldScale,1));
+   function interpArray(obj,inpArr,outArr,oldScale, newScale)
+       tmp = zeros(obj.xnodes*obj.znodes,size(oldScale,1));
        outArr.M = single.empty(0,0,0,0);
        
        for yInd = 1:obj.ynodes
@@ -2336,7 +2383,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
 
    end   
    
-   % save current plot 
+   % save current plot
    function savePlotAs(obj,varargin)
        p = inputParser;
        p.addRequired('fName',@isstr);
