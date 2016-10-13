@@ -137,7 +137,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      
      if (strcmp(name,'') && strcmp(ext,''))
          [fName,fPath,~] = uigetfile({'*.omf'; '*.ohf'; '*.stc'; '*.ovf'});
-         fName = fullfile(fPath,fName);  
+         obj.fName = fullfile(fPath,fName);  
      elseif (strcmp(ext,''))
          fName = strcat(obj.fName,'.',params.fileExt);
      else
@@ -1539,7 +1539,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        elseif exist('MzFile','var')
            arrSize = size(MzFile,'M');
        elseif exist('MinpFile','var')
-           arrSize = size(MinpFile,'Minp');      
+           arrSize = size(MinpFile,'M');      
        else
            disp('No projections');
            return
@@ -1551,6 +1551,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            chunkAmount = arrSize(4)/zStep
        else     
            zStep = arrSize(4)
+           %zStep = 1 %for 1D sample
            chunkAmount = 1
        end
        
@@ -1567,7 +1568,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            if ~isempty(strfind(params.proj,'x'))
                % process Mx projection
                disp('Mx');
-               Mx = MxFile.Mx(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
+               Mx = MxFile.M(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
                if (params.background)
                    disp('Substract background');
                    for timeInd = 1:arrSize(1)
@@ -1603,7 +1604,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                % process My projection
                disp('My');
                
-               My = MyFile.My(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
+               My = MyFile.M(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
                if (params.background)
                    disp('Substract background');
                    for timeInd = 1:arrSize(1)
