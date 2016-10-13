@@ -1,0 +1,12 @@
+warning: Tag `SYMBOL_CACHE_SIZE' at line 363 of file `D:\YaDisk\MatLab\addons\classes\oommf2matlab\html\documentation\Doxyfile' has become obsolete.
+         To avoid this warning please remove this line from your configuration file or upgrade it using "doxygen -u"
+warning: Tag `XML_SCHEMA' at line 1325 of file `D:\YaDisk\MatLab\addons\classes\oommf2matlab\html\documentation\Doxyfile' has become obsolete.
+         To avoid this warning please remove this line from your configuration file or upgrade it using "doxygen -u"
+warning: Tag `XML_DTD' at line 1331 of file `D:\YaDisk\MatLab\addons\classes\oommf2matlab\html\documentation\Doxyfile' has become obsolete.
+         To avoid this warning please remove this line from your configuration file or upgrade it using "doxygen -u"
+warning: doxygen no longer ships with the FreeSans font.
+You may want to clear or change DOT_FONTNAME.
+Otherwise you run the risk that the wrong font is being used for dot generated graphs.
+mtoc++ postprocessor messages:
+'mtocpp_post' is not recognized as an internal or external command,
+operable program or batch file.

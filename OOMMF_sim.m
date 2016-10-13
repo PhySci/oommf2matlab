@@ -197,10 +197,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
     else    
       fclose(fid);
     end
-    
-    % Mag(x y z dim)
-    maxInd = obj.znodes*obj.ynodes*obj.xnodes;
-    
+        
     Mx = data(1:3:size(data,1));
     My = data(2:3:size(data,1));
     Mz = data(3:3:size(data,1));
@@ -287,11 +284,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
     else    
       fclose(fid);
     end
-    
-    % Mag(x y z dim)
-    maxInd = obj.znodes*obj.ynodes*obj.xnodes;
-    
-    
+        
     valArr = reshape(data, [obj.xnodes obj.ynodes obj.znodes]);
     
     if (params.showMemory)
@@ -1071,7 +1064,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
 
        % plot amplitude map
        fg1 = figure(1);
-       %subplot(2,1,1);
+       subplot(2,1,1);
            ref = min(Amp(find(Amp(:))));
 
            if strcmp(params.scale,'log')
@@ -1079,41 +1072,43 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                    ref = 1;
                end    
                imagesc(yScale,xScale,log10(Amp/ref));
-               hcb =colorbar('EastOutside');
-               colormap(jet)
-               %cbfreeze(jet)
-               %cbunits('dB');
+               colorbar('EastOutside');
+               colormap(flipud(gray));
+               cbfreeze(flipud(gray))
+               cblabel('dB');
            else
                imagesc(yScale,xScale,Amp,[0 1.05*max(Amp(:))]);
                axis xy equal;
-               hcb = colorbar('EastOutside');
-               %cbunits('a.u.');
+               colorbar('EastOutside');
+               colormap(flipud(gray));
+               cbfreeze(flipud(gray))
+               cblabel('arb. units');
            end    
-           title(['Amplitude of FFT, \nu=' num2str(params.freq) 'GHz, slice ' num2str(params.zSlice)]);
-           axis xy equal; colormap(flipud(gray));
+           %title(['Amplitude of FFT, \nu=' num2str(params.freq) 'GHz, slice ' num2str(params.zSlice)]);
+           axis xy equal; 
            xlabel(xLabelStr); ylabel(yLabelStr);
-           %freezeColors;
-           %cbfreeze;
+           freezeColors;
+           cbfreeze;
            xlim([min(yScale) max(yScale)]);
            ylim([min(xScale) max(xScale)]);
 
 
        % plot phase map   
-       fg2 = figure(2);
-       %subplot(2,1,2);
+       %fg2 = figure(2);
+       subplot(2,1,2);
            imagesc(yScale,xScale,Phase,[-pi pi]);
-           title(['Phase of FFT, \nu=' num2str(params.freq) 'GHz, slice ' num2str(params.zSlice)]);
+           %title(['Phase of FFT, \nu=' num2str(params.freq) 'GHz, slice ' num2str(params.zSlice)]);
            
            axis xy equal; colormap(hsv);
-           colorbar('EastOutside'); %cblabel('rad.');
+           colorbar('EastOutside'); cblabel('rad.');
            xlabel(xLabelStr); ylabel(yLabelStr);
            xlim([min(yScale) max(yScale)]);
            ylim([min(xScale) max(xScale)]);
           
        
        % save figure
-       obj.savePlotAs(params.saveAs,fg1,'suffix','-amp');
-       obj.savePlotAs(params.saveAs,fg2,'suffix','-phase');
+       obj.savePlotAs(params.saveAs,fg1);
+       %obj.savePlotAs(params.saveAs,fg2,'suffix','-phase');
    end 
    
    
@@ -1303,7 +1298,8 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    % params:
    %    scale - log or norm scale of the output dependence (norm)
    %    proj  - desirable projection of magnetization (@TODO, is broken)
-   %    xRange, yRange, zRange - spatial range of region of interest 
+   %    xRange, yRange, zRange - spatial range of region of interest
+   %    saveAs - name of the output images file
    function plotFFTIntensity(obj,varargin)
        
        p = inputParser;
@@ -2177,9 +2173,10 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        p = inputParser;
        
        p.addParamValue('ySlice',[10 20],@isnumeric);
-       p.addParamValue('zSlice',8,@isnumeric);
+       p.addParamValue('zSlice',1,@isnumeric);
        p.addParamValue('timeFrame',984,@isnumeric);
        p.addParamValue('saveAs','',@isstr);
+       p.addParamValue('saveMatAs','',@isstr);
        p.addParamValue('baseline',true,@islogical);
         
        % experimental parameters
@@ -2227,13 +2224,11 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        % plot results
        subplot(211)
-           plot(xScale,M,'LineWidth',2);
+           plot(xScale,M);
            xlabel('x (\mum)','FontSize',14,'FontName','Times','FontWeight','bold');
            ylabel('M_z (A/m)','FontName','Times','FontWeight','bold')
-           %xlim([min(xScale) max(xScale)]);
-           xlim([0 40])
-           ylim([-180 180])
-       
+           xlim([min(xScale) max(xScale)]);
+           
        subplot(212)
            plot(2*pi*kScale,amp);
            xlim([0 5]);
@@ -2243,6 +2238,12 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
 
        obj.savePlotAs(params.saveAs,gcf);
        print(gcf,'-depsc2','slice.eps');
+       
+       % save data to mat file
+       if (~strcmp(params.saveMatAs,''))
+           fName = strcat(params.saveMatAs,'.mat');
+           save(fName,'xScale','M','kScale','amp'); 
+       end
    end    
        
    

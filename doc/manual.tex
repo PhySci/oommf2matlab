@@ -1,0 +1,56 @@
+\documentclass[14pt,a4paper] {article}
+\usepackage{mathtext}
+\usepackage[T1,T2A]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{extsizes}
+\usepackage{cmap}
+\usepackage{float}
+
+\usepackage{authblk}
+\renewcommand\Affilfont{\itshape\small}
+\renewcommand\Authands{, }
+
+\usepackage{cite}
+\usepackage{hyperref}
+
+% вставка графики
+\usepackage[pdftex]{graphicx}
+\graphicspath{{imgs/}}
+
+
+\usepackage{caption}
+
+\renewcommand{\baselinestretch}{1.5}
+%\frenchspacing
+
+\usepackage{indentfirst} 
+
+\usepackage{geometry}
+\geometry{left=2cm}
+\geometry{right=1cm}
+\geometry{top=1.5cm}
+\geometry{bottom=1.5cm}
+
+\begin{document}
+\title{How to use OOMMF2MatLab classes}
+\author{Fedor Mushenok}
+\maketitle
+
+\section{Class OOMMF odt}
+ The class is developed for a quick analysis of output table results of $\mu$Max or OOMMF micromanetic simulation packages.
+
+\subsection{Available functions}
+\begin{itemize}
+\item loadFile - load a log file of micromagnetic simulation (usually, 'table.txt' for $\mu$Max and '*.odt' for OOMMF). No extra parameters are required. 
+
+\item plotMZ - plot time dependence of Z projection of magnetization.
+
+\item plotZFFT - plot FFT spectra of Z projection of magnetization in time domain. 
+
+\subsection{How to use it.} 
+
+\end{itemize}
+ 
+ 
+\end{document}

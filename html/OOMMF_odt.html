@@ -1,0 +1,755 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML was auto-generated from MATLAB code.
+To make changes, update the MATLAB code and republish this document.
+      --><title>OOMMF_odt</title><meta name="generator" content="MATLAB 8.3"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2016-10-05"><meta name="DC.source" content="OOMMF_odt.m"><style type="text/css">
+html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abbr,acronym,address,big,cite,code,del,dfn,em,font,img,ins,kbd,q,s,samp,small,strike,strong,sub,sup,tt,var,b,u,i,center,dl,dt,dd,ol,ul,li,fieldset,form,label,legend,table,caption,tbody,tfoot,thead,tr,th,td{margin:0;padding:0;border:0;outline:0;font-size:100%;vertical-align:baseline;background:transparent}body{line-height:1}ol,ul{list-style:none}blockquote,q{quotes:none}blockquote:before,blockquote:after,q:before,q:after{content:'';content:none}:focus{outine:0}ins{text-decoration:none}del{text-decoration:line-through}table{border-collapse:collapse;border-spacing:0}
+
+html { min-height:100%; margin-bottom:1px; }
+html body { height:100%; margin:0px; font-family:Arial, Helvetica, sans-serif; font-size:10px; color:#000; line-height:140%; background:#fff none; overflow-y:scroll; }
+html body td { vertical-align:top; text-align:left; }
+
+h1 { padding:0px; margin:0px 0px 25px; font-family:Arial, Helvetica, sans-serif; font-size:1.5em; color:#d55000; line-height:100%; font-weight:normal; }
+h2 { padding:0px; margin:0px 0px 8px; font-family:Arial, Helvetica, sans-serif; font-size:1.2em; color:#000; font-weight:bold; line-height:140%; border-bottom:1px solid #d6d4d4; display:block; }
+h3 { padding:0px; margin:0px 0px 5px; font-family:Arial, Helvetica, sans-serif; font-size:1.1em; color:#000; font-weight:bold; line-height:140%; }
+
+a { color:#005fce; text-decoration:none; }
+a:hover { color:#005fce; text-decoration:underline; }
+a:visited { color:#004aa0; text-decoration:none; }
+
+p { padding:0px; margin:0px 0px 20px; }
+img { padding:0px; margin:0px 0px 20px; border:none; }
+p img, pre img, tt img, li img, h1 img, h2 img { margin-bottom:0px; } 
+
+ul { padding:0px; margin:0px 0px 20px 23px; list-style:square; }
+ul li { padding:0px; margin:0px 0px 7px 0px; }
+ul li ul { padding:5px 0px 0px; margin:0px 0px 7px 23px; }
+ul li ol li { list-style:decimal; }
+ol { padding:0px; margin:0px 0px 20px 0px; list-style:decimal; }
+ol li { padding:0px; margin:0px 0px 7px 23px; list-style-type:decimal; }
+ol li ol { padding:5px 0px 0px; margin:0px 0px 7px 0px; }
+ol li ol li { list-style-type:lower-alpha; }
+ol li ul { padding-top:7px; }
+ol li ul li { list-style:square; }
+
+.content { font-size:1.2em; line-height:140%; padding: 20px; }
+
+pre, code { font-size:12px; }
+tt { font-size: 1.2em; }
+pre { margin:0px 0px 20px; }
+pre.codeinput { padding:10px; border:1px solid #d3d3d3; background:#f7f7f7; }
+pre.codeoutput { padding:10px 11px; margin:0px 0px 20px; color:#4c4c4c; }
+pre.error { color:red; }
+
+@media print { pre.codeinput, pre.codeoutput { word-wrap:break-word; width:100%; } }
+
+span.keyword { color:#0000FF }
+span.comment { color:#228B22 }
+span.string { color:#A020F0 }
+span.untermstring { color:#B20000 }
+span.syscmd { color:#B28C00 }
+
+.footer { width:auto; padding:10px 0px; margin:25px 0px 0px; border-top:1px dotted #878787; font-size:0.8em; line-height:140%; font-style:italic; color:#878787; text-align:left; float:none; }
+.footer p { margin:0px; }
+.footer a { color:#878787; }
+.footer a:hover { color:#878787; text-decoration:underline; }
+.footer a:visited { color:#878787; }
+
+table th { padding:7px 5px; text-align:left; vertical-align:middle; border: 1px solid #d6d4d4; font-weight:bold; }
+table td { padding:7px 5px; text-align:left; vertical-align:top; border:1px solid #d6d4d4; }
+
+
+
+
+
+  </style></head><body><div class="content"><h2>Contents</h2><div><ul><li><a href="#3">plot hysteresis loop from odt file</a></li></ul></div><pre class="codeinput"><span class="comment">% Class for processing results of OOMMF simulations</span>
+<span class="keyword">classdef</span> OOMMF_odt &lt; hgsetget <span class="comment">% subclass hgsetget</span>
+
+ <span class="keyword">properties</span>
+   fName = <span class="string">'transducerCW.odt'</span>
+   colNames
+   unitNames
+   title
+   data
+   Mx
+   My
+   Mz
+   B
+   Bx
+   By
+   Bz
+   time
+   dt = 0
+   freqScale
+ <span class="keyword">end</span>
+
+ <span class="keyword">methods</span>
+</pre><pre class="codeinput">     <span class="comment">% load odt file and parse content</span>
+   <span class="keyword">function</span> loadFile(obj,varargin)
+     p = inputParser;
+     p.addParamValue(<span class="string">'path'</span>,<span class="string">''</span>);
+     p.parse(varargin{:});
+     params = p.Results;
+
+     <span class="keyword">if</span> (isempty(params.path))
+       [fName,fPath,~] = uigetfile({<span class="string">'*.odt'</span>;<span class="string">'*.txt'</span>});
+       params.path = fullfile(fPath,fName);
+     <span class="keyword">end</span>
+
+     fid = fopen(params.path);
+     <span class="keyword">if</span> ((fid == -1))
+       disp(<span class="string">'File not found'</span>);
+       <span class="keyword">return</span>;
+     <span class="keyword">end</span>
+
+     obj.fName = params.path;
+     [~,~,ext] = fileparts(fName);
+
+     <span class="keyword">if</span> strcmp(ext,<span class="string">'.txt'</span>)
+       res = importdata(params.path);
+       obj.data = res.data;
+
+       obj.time = res.data(:,1);
+       obj.Mx = res.data(:,2);
+       obj.My = res.data(:,3);
+       obj.Mz = res.data(:,4);
+       obj.Bx = res.data(:,6);
+       obj.By = res.data(:,7);
+       obj.Bz = res.data(:,8);
+     <span class="keyword">else</span>
+
+         [IOmess, errnum] = ferror(fid);
+         <span class="keyword">if</span> (errnum ~= 0)
+           disp(IOmess);
+           <span class="keyword">return</span>;
+         <span class="keyword">end</span>
+
+         format = fgetl(fid);
+         <span class="keyword">if</span> strfind(format,<span class="string">'ODT 1.0'</span>)
+           fgetl(fid);
+           obj.title = fgetl(fid);
+           splitStr = regexp(fgetl(fid), <span class="string">'^# Columns: '</span>,<span class="string">'split'</span>);
+           obj.colNames = parseTextStr(splitStr{1,2});
+           splitStr = regexp(fgetl(fid), <span class="string">'^# Units: '</span>,<span class="string">'split'</span>);
+           obj.unitNames = parseTextStr(splitStr{1,2});
+           data = zeros(1,size(obj.unitNames,1));
+           <span class="keyword">while</span> (~feof(fid))
+             line = fgetl(fid);
+             <span class="keyword">if</span> (isempty(strfind(line,<span class="string">'#'</span>)))
+               data(end+1,:) = parseDigitalStr(line);
+             <span class="keyword">end</span>
+           <span class="keyword">end</span>
+         <span class="keyword">else</span>
+           disp(<span class="string">'Unknown format'</span>);
+         <span class="keyword">end</span>
+
+         <span class="keyword">if</span> (errnum ~= 0)
+           disp(IOmess);
+           <span class="keyword">return</span>;
+         <span class="keyword">else</span>
+           disp(<span class="string">'File was uploaded'</span>);
+         <span class="keyword">end</span>
+
+         fclose(fid);
+         obj.data = data(2:end,:);
+         obj.parse;
+     <span class="keyword">end</span>
+
+     obj.calcFreqScale
+   <span class="keyword">end</span>
+
+     <span class="comment">% find magnetization projections and time</span>
+   <span class="keyword">function</span> parse(obj)
+     expr = <span class="string">'(mx)|(my)|(mz)|(Simulation time)|(Bx)|(By)|(Bz)|(B)'</span>;
+
+     <span class="keyword">for</span> i=1:size(obj.colNames,1)
+       nm = obj.colNames{i,1};
+       [token] = regexp(nm,expr,<span class="string">'tokens'</span>);
+
+       <span class="keyword">if</span> (~isempty(token{1,1}))
+
+         <span class="keyword">if</span> (strcmp(token{1,1}{1,1}{1,1},<span class="string">'mx'</span>))
+           obj.Mx = obj.data(:,i);
+         <span class="keyword">elseif</span> (strcmp(token{1,1}{1,1}{1,1},<span class="string">'my'</span>))
+           obj.My = obj.data(:,i);
+         <span class="keyword">elseif</span> (strcmp(token{1,1}{1,1}{1,1},<span class="string">'mz'</span>))
+           obj.Mz = obj.data(:,i);
+         <span class="keyword">elseif</span> (strcmp(token{1,1}{1,1}{1,1},<span class="string">'Simulation time'</span>))
+           obj.time = obj.data(:,i);
+           obj.dt = mean(diff(obj.time));
+         <span class="keyword">elseif</span> (strcmp(token{1,1}{1,1}{1,1},<span class="string">'Bx'</span>))
+           obj.Bx = obj.data(:,i);
+         <span class="keyword">elseif</span> (strcmp(token{1,1}{1,1}{1,1},<span class="string">'By'</span>))
+           obj.By = obj.data(:,i);
+         <span class="keyword">elseif</span> (strcmp(token{1,1}{1,1}{1,1},<span class="string">'Bz'</span>))
+           obj.Bz = obj.data(:,i);
+         <span class="keyword">elseif</span> (strcmp(token{1,1}{1,1}{1,1},<span class="string">'B'</span>))
+           obj.B = obj.data(:,i);
+
+         <span class="keyword">end</span>
+       <span class="keyword">end</span>
+     <span class="keyword">end</span>
+   <span class="keyword">end</span>
+
+    <span class="comment">% plot FFT for Mz magnetisation</span>
+   <span class="keyword">function</span> plotZFFT(obj,varargin)
+     p = inputParser;
+     p.addParamValue(<span class="string">'scale'</span>,<span class="string">'norm'</span>,@(x) ismember(x,{<span class="string">'norm'</span>,<span class="string">'log'</span>}));
+     p.addParamValue(<span class="string">'saveAs'</span>,<span class="string">''</span>,@isstr);
+     p.addParamValue(<span class="string">'freqLim'</span>,[0 15],@isnumeric);
+
+     p.parse(varargin{:});
+     params = p.Results;
+
+     Y = fftshift(abs(fft(obj.Mz(1:end))));
+
+     <span class="keyword">if</span> strcmp(params.scale,<span class="string">'norm'</span>)
+       plot(obj.freqScale/1e9,Y);
+     <span class="keyword">else</span>
+       semilogy(obj.freqScale/1e9,Y,obj.freqScale/1e9,Y2);
+     <span class="keyword">end</span>
+     xlabel(<span class="string">'Frequency (GHz)'</span>,<span class="string">'FontSize'</span>,18,<span class="string">'FontName'</span>,<span class="string">'Times'</span>,<span class="string">'FontWeight'</span>,<span class="string">'bold'</span>);
+     xlim([params.freqLim(1) params.freqLim(2)]);
+     ylabel(<span class="string">'SD (arb. units)'</span>,<span class="string">'FontSize'</span>,18,<span class="string">'FontName'</span>,<span class="string">'Times'</span>,<span class="string">'FontWeight'</span>,<span class="string">'bold'</span>);
+    <span class="comment">% title('FFT of M_z projection');</span>
+
+     set(gca,<span class="string">'FontSize'</span>,14,<span class="string">'FontName'</span>,<span class="string">'Times'</span>,<span class="string">'FontWeight'</span>,<span class="string">'bold'</span>);
+
+     <span class="comment">% save img</span>
+     <span class="keyword">if</span> (~strcmp(params.saveAs,<span class="string">''</span>))
+         savefig(strcat(params.saveAs,<span class="string">'.fig'</span>));
+         print(gcf,<span class="string">'-dpng'</span>,strcat(params.saveAs,<span class="string">'.png'</span>));
+     <span class="keyword">end</span>
+
+   <span class="keyword">end</span>
+
+   <span class="comment">% plot FFT for Mx magnetisation</span>
+   <span class="keyword">function</span> plotXFFT(obj,varargin)
+     p = inputParser;
+     p.addParamValue(<span class="string">'scale'</span>,<span class="string">'norm'</span>,@(x) ismember(x,{<span class="string">'norm'</span>,<span class="string">'log'</span>}));
+     p.addParamValue(<span class="string">'saveImg'</span>,false,@islogical);
+     p.addParamValue(<span class="string">'freqLim'</span>,[0 15],@isnumeric);
+     p.parse(varargin{:});
+     params = p.Results;
+
+     Y = fftshift(abs(fft(obj.Mx)));
+     freq = linspace(-0.5/obj.dt,0.5/obj.dt,size(Y,1))/1e9;
+
+     fig1 = figure();
+     <span class="keyword">if</span> strcmp(params.scale,<span class="string">'norm'</span>)
+       plot(freq,Y);
+     <span class="keyword">else</span>
+       semilogy(freq,Y);
+     <span class="keyword">end</span>
+       xlabel(<span class="string">'Freq, GHz'</span>); xlim([0,30]);
+       ylabel(<span class="string">'FFT intensity'</span>);
+
+     title(strcat(<span class="string">'FFT of M_x projection.'</span>));
+     xlim([params.freqLim(1) params.freqLim(2)]);
+
+     <span class="keyword">if</span> (params.saveImg)
+       [fName, errFlag] = generateFileName(<span class="string">'.'</span>,<span class="string">'odtXFFT'</span>,<span class="string">'png'</span>);
+       print(fig1,<span class="string">'-dpng'</span>,<span class="string">'-r300'</span>,fName);
+     <span class="keyword">end</span>
+
+   <span class="keyword">end</span>
+
+   <span class="comment">% plot FFT for My magnetisation</span>
+   <span class="keyword">function</span> plotYFFT(obj,varargin)
+     p = inputParser;
+     p.addParamValue(<span class="string">'scale'</span>,<span class="string">'norm'</span>,@(x) ismember(x,{<span class="string">'norm'</span>,<span class="string">'log'</span>}));
+     p.addParamValue(<span class="string">'freqLim'</span>,[0 15],@isnumeric);
+     p.parse(varargin{:});
+     params = p.Results;
+
+     Y = fftshift(abs(fft(obj.My)));
+     freq = linspace(-0.5/obj.dt,0.5/obj.dt,size(Y,1))/1e9;
+     title(<span class="string">'FFT of M_y'</span>);
+     <span class="keyword">if</span> strcmp(params.scale,<span class="string">'norm'</span>)
+       plot(freq,Y);
+     <span class="keyword">else</span>
+       semilogy(freq,Y);
+     <span class="keyword">end</span>
+
+     xlabel(<span class="string">'Frequency (GHz)'</span>,<span class="string">'FontSize'</span>,12,<span class="string">'FontName'</span>,<span class="string">'Times'</span>); xlim([0,15]);
+     ylabel(<span class="string">'FFT intensity (arb. units)'</span>, <span class="string">'FontSize'</span>,12,<span class="string">'FontName'</span>,<span class="string">'Times'</span>);
+     xlim([params.freqLim(1) params.freqLim(2)]);
+     num2clip([freq(find(freq&gt;=0)).' Y(find(freq&gt;=0))]);
+
+   <span class="keyword">end</span>
+
+   <span class="comment">% calculate frequency scale</span>
+   <span class="keyword">function</span> calcFreqScale(obj)
+       <span class="keyword">if</span> (obj.dt&gt;0) &amp;&amp; (size(obj.time,1)&gt;0)
+           obj.freqScale = linspace(-0.5/obj.dt,0.5/obj.dt,size(obj.time,1));
+       <span class="keyword">end</span>
+   <span class="keyword">end</span>
+
+   <span class="comment">% plot time dependece of Mz magnetization</span>
+   <span class="comment">% params:</span>
+   <span class="comment">%        addExp - plot double-Y plot</span>
+   <span class="keyword">function</span> plotMz(obj,varargin)
+
+       p = inputParser;
+       p.addParamValue(<span class="string">'saveAs'</span>,<span class="string">''</span>,@isstr);
+       p.addParamValue(<span class="string">'addExp'</span>,false,@islogical);
+       p.addParamValue(<span class="string">'tMax'</span>,0,@isnumeric);
+       p.parse(varargin{:});
+       params = p.Results;
+
+       <span class="keyword">if</span> (params.tMax == 0)
+           params.tMax = obj.time(end)/1e-9;
+       <span class="keyword">end</span>
+
+       <span class="keyword">if</span> params.addExp
+           A = 1;
+           h = A*exp(-10./(6.60e9*obj.time));
+           [hAx,H1,H2] = plotyy(obj.time/1e-9,obj.Mz,obj.time/1e-9,h);
+           ylabel(hAx(1),<span class="string">'M_z (arb. units)'</span>,<span class="string">'FontSize'</span>,18,<span class="string">'FontName'</span>,<span class="string">'Times'</span>,<span class="string">'FontWeight'</span>,<span class="string">'bold'</span>);
+           ylabel(hAx(2),<span class="string">'A (Oe)'</span>,<span class="string">'FontSize'</span>,18,<span class="string">'FontName'</span>,<span class="string">'Times'</span>,<span class="string">'FontWeight'</span>,<span class="string">'bold'</span>);
+           xlabel(<span class="string">'Time (ns)'</span>,<span class="string">'FontSize'</span>,18,<span class="string">'FontName'</span>,<span class="string">'Times'</span>,<span class="string">'FontWeight'</span>,<span class="string">'bold'</span>);
+           <span class="comment">% set font styles</span>
+           set(hAx(1),<span class="string">'FontSize'</span>,16,<span class="string">'FontName'</span>,<span class="string">'Times'</span>,<span class="string">'FontWeight'</span>,<span class="string">'bold'</span>);
+           set(hAx(1),<span class="string">'YTick'</span>,[-2e-5, 0, 2e-5]);
+           set(hAx(2),<span class="string">'FontSize'</span>,16,<span class="string">'FontName'</span>,<span class="string">'Times'</span>,<span class="string">'FontWeight'</span>,<span class="string">'bold'</span>);
+           <span class="comment">% set X limits</span>
+           xlim(hAx(1),[0, params.tMax]);
+           xlim(hAx(2),[0, params.tMax]);
+           <span class="comment">% set Y limits</span>
+           ylim(hAx(1),[1.1*min(obj.Mz), 1.1*max(obj.Mz)]);
+           ylim(hAx(2),[-1.1*A, 1.1*A]);
+
+           set(H2,<span class="string">'LineWidth'</span>,3)
+       <span class="keyword">else</span>
+           plot(obj.time/1e-9,obj.Mz);
+           xlim([0 1.01* obj.time(end)/1e-9]);
+           xlabel(<span class="string">'Time (ns)'</span>,<span class="string">'FontSize'</span>,18,<span class="string">'FontName'</span>,<span class="string">'Times'</span>,<span class="string">'FontWeight'</span>,<span class="string">'bold'</span>);
+           ylabel(<span class="string">'M_z (arb. units)'</span>,<span class="string">'FontSize'</span>,18,<span class="string">'FontName'</span>,<span class="string">'Times'</span>,<span class="string">'FontWeight'</span>,<span class="string">'bold'</span>);
+           set(gca,<span class="string">'FontSize'</span>,16,<span class="string">'FontName'</span>,<span class="string">'Times'</span>,<span class="string">'FontWeight'</span>,<span class="string">'bold'</span>);
+       <span class="keyword">end</span>
+
+       <span class="keyword">if</span> (~strcmp(params.saveAs,<span class="string">''</span>))
+           savefig(strcat(params.saveAs,<span class="string">'.fig'</span>));
+           print(gcf,<span class="string">'-dpng'</span>,strcat(params.saveAs,<span class="string">'.png'</span>));
+       <span class="keyword">end</span>
+   <span class="keyword">end</span>
+</pre><h2>plot hysteresis loop from odt file<a name="3"></a></h2><p>params:  - proj: projection of magnetization (z is default)</p><pre class="codeinput">   <span class="keyword">function</span> plotHystLoop(obj,varargin)
+       p = inputParser;
+       p.addParamValue(<span class="string">'proj'</span>,<span class="string">'z'</span>,@(x) any(strcmp(x,{<span class="string">'x'</span>,<span class="string">'X'</span>,<span class="string">'y'</span>,<span class="string">'Y'</span>,<span class="string">'z'</span>,<span class="string">'Z'</span>})));
+       p.addParamValue(<span class="string">'saveAs'</span>,<span class="string">''</span>,@isstr);
+       p.addParamValue(<span class="string">'xLim'</span>,0,@isnumeric);
+       p.parse(varargin{:});
+       params = p.Results;
+
+       params.proj = lower(params.proj);
+
+       B = eval(strcat(<span class="string">'obj.B'</span>,params.proj));
+       M = eval(strcat(<span class="string">'obj.M'</span>,params.proj));
+
+       plot(B/100,M,<span class="string">'-bo'</span>); grid <span class="string">on</span>
+       xlabel(<span class="string">'H, kOe'</span>); ylabel(<span class="string">'M/M_s'</span>);
+       <span class="keyword">if</span> (params.xLim ==0)
+          xlim([0.0105*min(B(:)) 0.0105*max(B(:))]);
+       <span class="keyword">else</span>
+          xlim([params.xLim(1) params.xLim(2)])
+       <span class="keyword">end</span>
+       ylim([-1.05 1.05]);
+
+       <span class="comment">% save img</span>
+       <span class="keyword">if</span> (~strcmp(params.saveAs,<span class="string">''</span>))
+           savefig(strcat(params.saveAs,<span class="string">'.fig'</span>));
+           print(gcf,<span class="string">'-dpng'</span>,strcat(params.saveAs,<span class="string">'.png'</span>));
+       <span class="keyword">end</span>
+   <span class="keyword">end</span>
+</pre><pre class="codeinput"> <span class="keyword">end</span>
+
+<span class="keyword">end</span>
+
+<span class="keyword">function</span> res = parseTextStr(str)
+  expr = <span class="string">'^\s*(\{[\w:\s\/]*\}|[\w:\/]+)+\s*'</span>;
+  res ={};
+  i = 1;
+  str2 = str;
+  <span class="keyword">while</span> (~isempty(str2))
+    [token, splitStr] = regexp(str2,expr,<span class="string">'tokens'</span>,<span class="string">'split'</span>);
+       res{i,1}= regexprep(token{1,1}, <span class="string">'\{|\}'</span>, <span class="string">''</span>) ;
+       i=i+1;
+       <span class="keyword">if</span> (~isempty(splitStr{1,1}))
+         str2 = splitStr{1,1};
+       <span class="keyword">elseif</span> (~isempty(splitStr{1,2}))
+         str2 = splitStr{1,2};
+       <span class="keyword">else</span>
+         <span class="keyword">break</span>;
+       <span class="keyword">end</span>
+  <span class="keyword">end</span>
+<span class="keyword">end</span>
+
+<span class="keyword">function</span> res = parseDigitalStr(str)
+  expr = <span class="string">'^\s*(-?[\d.]+e-?[\d]+|-?[\d.]+)\s*'</span>;
+  res =[];
+  str2 = str;
+  <span class="keyword">while</span> (~isempty(str2))
+    [token, splitStr] = regexp(str2,expr,<span class="string">'tokens'</span>,<span class="string">'split'</span>);
+       res(end+1)=str2double(token{1,1});
+       <span class="keyword">if</span> (~isempty(splitStr{1,1}))
+         str2 = splitStr{1,1};
+       <span class="keyword">elseif</span> (~isempty(splitStr{1,2}))
+         str2 = splitStr{1,2};
+       <span class="keyword">else</span>
+         <span class="keyword">break</span>;
+       <span class="keyword">end</span>
+  <span class="keyword">end</span>
+<span class="keyword">end</span>
+</pre><p class="footer"><br><a href="http://www.mathworks.com/products/matlab/">Published with MATLAB&reg; R2014a</a><br></p></div><!--
+##### SOURCE BEGIN #####
+% Class for processing results of OOMMF simulations 
+classdef OOMMF_odt < hgsetget % subclass hgsetget
+ 
+ properties
+   fName = 'transducerCW.odt'
+   colNames
+   unitNames
+   title
+   data
+   Mx
+   My
+   Mz
+   B
+   Bx
+   By
+   Bz
+   time
+   dt = 0
+   freqScale
+ end
+ 
+ methods
+   
+     % load odt file and parse content
+   function loadFile(obj,varargin)
+     p = inputParser;
+     p.addParamValue('path','');
+     p.parse(varargin{:});
+     params = p.Results;
+     
+     if (isempty(params.path))
+       [fName,fPath,~] = uigetfile({'*.odt';'*.txt'});
+       params.path = fullfile(fPath,fName);
+     end    
+     
+     fid = fopen(params.path);
+     if ((fid == -1))
+       disp('File not found');
+       return;
+     end
+     
+     obj.fName = params.path;
+     [~,~,ext] = fileparts(fName); 
+     
+     if strcmp(ext,'.txt')
+       res = importdata(params.path);
+       obj.data = res.data;
+
+       obj.time = res.data(:,1); 
+       obj.Mx = res.data(:,2);
+       obj.My = res.data(:,3);
+       obj.Mz = res.data(:,4);
+       obj.Bx = res.data(:,6);
+       obj.By = res.data(:,7);
+       obj.Bz = res.data(:,8);
+     else
+     
+         [IOmess, errnum] = ferror(fid);
+         if (errnum ~= 0)
+           disp(IOmess);
+           return;
+         end
+
+         format = fgetl(fid);
+         if strfind(format,'ODT 1.0') 
+           fgetl(fid);
+           obj.title = fgetl(fid);
+           splitStr = regexp(fgetl(fid), '^# Columns: ','split');
+           obj.colNames = parseTextStr(splitStr{1,2});
+           splitStr = regexp(fgetl(fid), '^# Units: ','split');
+           obj.unitNames = parseTextStr(splitStr{1,2});
+           data = zeros(1,size(obj.unitNames,1));
+           while (~feof(fid))
+             line = fgetl(fid);
+             if (isempty(strfind(line,'#')))
+               data(end+1,:) = parseDigitalStr(line);
+             end
+           end
+         else
+           disp('Unknown format');
+         end
+
+         if (errnum ~= 0)
+           disp(IOmess);
+           return;
+         else
+           disp('File was uploaded');  
+         end    
+
+         fclose(fid);
+         obj.data = data(2:end,:);
+         obj.parse;
+     end
+     
+     obj.calcFreqScale
+   end  
+   
+     % find magnetization projections and time 
+   function parse(obj)
+     expr = '(mx)|(my)|(mz)|(Simulation time)|(Bx)|(By)|(Bz)|(B)';
+     
+     for i=1:size(obj.colNames,1)
+       nm = obj.colNames{i,1};  
+       [token] = regexp(nm,expr,'tokens');
+       
+       if (~isempty(token{1,1}))
+           
+         if (strcmp(token{1,1}{1,1}{1,1},'mx'))
+           obj.Mx = obj.data(:,i); 
+         elseif (strcmp(token{1,1}{1,1}{1,1},'my'))
+           obj.My = obj.data(:,i);
+         elseif (strcmp(token{1,1}{1,1}{1,1},'mz'))
+           obj.Mz = obj.data(:,i);
+         elseif (strcmp(token{1,1}{1,1}{1,1},'Simulation time'))
+           obj.time = obj.data(:,i);
+           obj.dt = mean(diff(obj.time));
+         elseif (strcmp(token{1,1}{1,1}{1,1},'Bx'))
+           obj.Bx = obj.data(:,i);
+         elseif (strcmp(token{1,1}{1,1}{1,1},'By'))
+           obj.By = obj.data(:,i);
+         elseif (strcmp(token{1,1}{1,1}{1,1},'Bz'))
+           obj.Bz = obj.data(:,i);
+         elseif (strcmp(token{1,1}{1,1}{1,1},'B'))
+           obj.B = obj.data(:,i);
+           
+         end          
+       end
+     end
+   end
+   
+    % plot FFT for Mz magnetisation
+   function plotZFFT(obj,varargin)
+     p = inputParser;
+     p.addParamValue('scale','norm',@(x) ismember(x,{'norm','log'}));
+     p.addParamValue('saveAs','',@isstr);
+     p.addParamValue('freqLim',[0 15],@isnumeric);
+     
+     p.parse(varargin{:});
+     params = p.Results; 
+     
+     Y = fftshift(abs(fft(obj.Mz(1:end))));
+     
+     if strcmp(params.scale,'norm')
+       plot(obj.freqScale/1e9,Y);
+     else
+       semilogy(obj.freqScale/1e9,Y,obj.freqScale/1e9,Y2);  
+     end    
+     xlabel('Frequency (GHz)','FontSize',18,'FontName','Times','FontWeight','bold'); 
+     xlim([params.freqLim(1) params.freqLim(2)]);
+     ylabel('SD (arb. units)','FontSize',18,'FontName','Times','FontWeight','bold');
+    % title('FFT of M_z projection');
+     
+     set(gca,'FontSize',14,'FontName','Times','FontWeight','bold');
+     
+     % save img
+     if (~strcmp(params.saveAs,''))
+         savefig(strcat(params.saveAs,'.fig'));
+         print(gcf,'-dpng',strcat(params.saveAs,'.png'));
+     end
+     
+   end    
+     
+   % plot FFT for Mx magnetisation
+   function plotXFFT(obj,varargin)
+     p = inputParser;
+     p.addParamValue('scale','norm',@(x) ismember(x,{'norm','log'}));
+     p.addParamValue('saveImg',false,@islogical);
+     p.addParamValue('freqLim',[0 15],@isnumeric);
+     p.parse(varargin{:});
+     params = p.Results; 
+     
+     Y = fftshift(abs(fft(obj.Mx)));
+     freq = linspace(-0.5/obj.dt,0.5/obj.dt,size(Y,1))/1e9;
+     
+     fig1 = figure();
+     if strcmp(params.scale,'norm')
+       plot(freq,Y);
+     else
+       semilogy(freq,Y);  
+     end    
+       xlabel('Freq, GHz'); xlim([0,30]);
+       ylabel('FFT intensity');
+     
+     title(strcat('FFT of M_x projection.'));
+     xlim([params.freqLim(1) params.freqLim(2)]);
+     
+     if (params.saveImg)
+       [fName, errFlag] = generateFileName('.','odtXFFT','png');
+       print(fig1,'-dpng','-r300',fName);
+     end
+     
+   end
+   
+   % plot FFT for My magnetisation
+   function plotYFFT(obj,varargin)
+     p = inputParser;
+     p.addParamValue('scale','norm',@(x) ismember(x,{'norm','log'}));
+     p.addParamValue('freqLim',[0 15],@isnumeric);
+     p.parse(varargin{:});
+     params = p.Results; 
+     
+     Y = fftshift(abs(fft(obj.My)));
+     freq = linspace(-0.5/obj.dt,0.5/obj.dt,size(Y,1))/1e9;
+     title('FFT of M_y');     
+     if strcmp(params.scale,'norm')
+       plot(freq,Y);
+     else
+       semilogy(freq,Y);  
+     end
+     
+     xlabel('Frequency (GHz)','FontSize',12,'FontName','Times'); xlim([0,15]);
+     ylabel('FFT intensity (arb. units)', 'FontSize',12,'FontName','Times');
+     xlim([params.freqLim(1) params.freqLim(2)]);
+     num2clip([freq(find(freq>=0)).' Y(find(freq>=0))]);
+
+   end
+   
+   % calculate frequency scale 
+   function calcFreqScale(obj)
+       if (obj.dt>0) && (size(obj.time,1)>0)
+           obj.freqScale = linspace(-0.5/obj.dt,0.5/obj.dt,size(obj.time,1));
+       end    
+   end    
+   
+   % plot time dependece of Mz magnetization
+   % params: 
+   %        addExp - plot double-Y plot 
+   function plotMz(obj,varargin)
+       
+       p = inputParser;
+       p.addParamValue('saveAs','',@isstr);
+       p.addParamValue('addExp',false,@islogical);
+       p.addParamValue('tMax',0,@isnumeric);
+       p.parse(varargin{:});
+       params = p.Results;
+       
+       if (params.tMax == 0)
+           params.tMax = obj.time(end)/1e-9;
+       end    
+       
+       if params.addExp
+           A = 1;
+           h = A*exp(-10./(6.60e9*obj.time));
+           [hAx,H1,H2] = plotyy(obj.time/1e-9,obj.Mz,obj.time/1e-9,h);
+           ylabel(hAx(1),'M_z (arb. units)','FontSize',18,'FontName','Times','FontWeight','bold');
+           ylabel(hAx(2),'A (Oe)','FontSize',18,'FontName','Times','FontWeight','bold');
+           xlabel('Time (ns)','FontSize',18,'FontName','Times','FontWeight','bold');
+           % set font styles
+           set(hAx(1),'FontSize',16,'FontName','Times','FontWeight','bold');
+           set(hAx(1),'YTick',[-2e-5, 0, 2e-5]);
+           set(hAx(2),'FontSize',16,'FontName','Times','FontWeight','bold');
+           % set X limits
+           xlim(hAx(1),[0, params.tMax]);
+           xlim(hAx(2),[0, params.tMax]);
+           % set Y limits
+           ylim(hAx(1),[1.1*min(obj.Mz), 1.1*max(obj.Mz)]);
+           ylim(hAx(2),[-1.1*A, 1.1*A]);
+           
+           set(H2,'LineWidth',3)
+       else
+           plot(obj.time/1e-9,obj.Mz);
+           xlim([0 1.01* obj.time(end)/1e-9]);
+           xlabel('Time (ns)','FontSize',18,'FontName','Times','FontWeight','bold');
+           ylabel('M_z (arb. units)','FontSize',18,'FontName','Times','FontWeight','bold');
+           set(gca,'FontSize',16,'FontName','Times','FontWeight','bold');    
+       end
+       
+       if (~strcmp(params.saveAs,''))
+           savefig(strcat(params.saveAs,'.fig'));
+           print(gcf,'-dpng',strcat(params.saveAs,'.png'));
+       end
+   end 
+   
+   %% plot hysteresis loop from odt file 
+   % params:
+   %  - proj: projection of magnetization (z is default)
+   
+   function plotHystLoop(obj,varargin)
+       p = inputParser;
+       p.addParamValue('proj','z',@(x) any(strcmp(x,{'x','X','y','Y','z','Z'})));
+       p.addParamValue('saveAs','',@isstr);
+       p.addParamValue('xLim',0,@isnumeric);
+       p.parse(varargin{:});
+       params = p.Results;
+       
+       params.proj = lower(params.proj); 
+       
+       B = eval(strcat('obj.B',params.proj));
+       M = eval(strcat('obj.M',params.proj));
+       
+       plot(B/100,M,'-bo'); grid on
+       xlabel('H, kOe'); ylabel('M/M_s');
+       if (params.xLim ==0)
+          xlim([0.0105*min(B(:)) 0.0105*max(B(:))]);
+       else
+          xlim([params.xLim(1) params.xLim(2)]) 
+       end    
+       ylim([-1.05 1.05]);
+       
+       % save img
+       if (~strcmp(params.saveAs,''))
+           savefig(strcat(params.saveAs,'.fig'));
+           print(gcf,'-dpng',strcat(params.saveAs,'.png'));
+       end 
+   end    
+   
+ end
+ 
+end
+
+function res = parseTextStr(str)
+  expr = '^\s*(\{[\w:\s\/]*\}|[\w:\/]+)+\s*';
+  res ={};
+  i = 1;
+  str2 = str;
+  while (~isempty(str2))
+    [token, splitStr] = regexp(str2,expr,'tokens','split');
+       res{i,1}= regexprep(token{1,1}, '\{|\}', '') ;
+       i=i+1;
+       if (~isempty(splitStr{1,1}))
+         str2 = splitStr{1,1};
+       elseif (~isempty(splitStr{1,2}))
+         str2 = splitStr{1,2};
+       else
+         break;  
+       end 
+  end
+end
+
+function res = parseDigitalStr(str)
+  expr = '^\s*(-?[\d.]+e-?[\d]+|-?[\d.]+)\s*';
+  res =[];
+  str2 = str;
+  while (~isempty(str2))
+    [token, splitStr] = regexp(str2,expr,'tokens','split');
+       res(end+1)=str2double(token{1,1});
+       if (~isempty(splitStr{1,1}))
+         str2 = splitStr{1,1};
+       elseif (~isempty(splitStr{1,2}))
+         str2 = splitStr{1,2};
+       else
+         break;  
+       end 
+  end
+end
+##### SOURCE END #####
+--></body></html>
