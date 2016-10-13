@@ -3,3 +3,5 @@
 - analize all code of OOMF_sim class and find common parts of code, like a "set legend", "mean(mean(x,3),4)" etc. Create small protected function for replacing thus parts of code.
 
 - have a look to function "mean"
+
+- cbfreeze in matlab doesnt work on v2015b need it different for colorbars in subfigures

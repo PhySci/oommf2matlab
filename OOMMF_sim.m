@@ -137,7 +137,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      
      if (strcmp(name,'') && strcmp(ext,''))
          [fName,fPath,~] = uigetfile({'*.omf'; '*.ohf'; '*.stc'; '*.ovf'});
-         fName = fullfile(fPath,fName);  
+         obj.fName = fullfile(fPath,fName);  
      elseif (strcmp(ext,''))
          fName = strcat(obj.fName,'.',params.fileExt);
      else
@@ -647,15 +647,15 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
              switch (params.value)
                  case 'M'    
                     disp('Write to file');
-                    XFile.Mx(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = cast(XHeap(1:indHeap,1:end,1:end,1:end),'single');
-                    YFile.My(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = cast(YHeap(1:indHeap,1:end,1:end,1:end),'single'); 
-                    ZFile.Mz(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = cast(ZHeap(1:indHeap,1:end,1:end,1:end),'single');
+                    XFile.M(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = cast(XHeap(1:indHeap,1:end,1:end,1:end),'single');
+                    YFile.M(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = cast(YHeap(1:indHeap,1:end,1:end,1:end),'single'); 
+                    ZFile.M(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = cast(ZHeap(1:indHeap,1:end,1:end,1:end),'single');
                     indHeap = 1;
                  case 'H'    
                     disp('Write to file');
-                    XFile.Hx(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = XHeap(1:indHeap,1:end,1:end,1:end);
-                    YFile.Hy(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = YHeap(1:indHeap,1:end,1:end,1:end); 
-                    ZFile.Hz(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = ZHeap(1:indHeap,1:end,1:end,1:end);
+                    XFile.H(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = XHeap(1:indHeap,1:end,1:end,1:end);
+                    YFile.H(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = YHeap(1:indHeap,1:end,1:end,1:end); 
+                    ZFile.H(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = ZHeap(1:indHeap,1:end,1:end,1:end);
                     indHeap = 1;
                  otherwise
                      disp('Unknpwn physical value');
@@ -1422,13 +1422,13 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        disp('FFT');
        
        if exist('MxFile','var')
-           arrSize = size(MxFile,'Mx');
+           arrSize = size(MxFile,'M');
        elseif exist('MyFile','var')
-           arrSize = size(MyFile,'My');
+           arrSize = size(MyFile,'M');
        elseif exist('MzFile','var')
-           arrSize = size(MzFile,'Mz');
+           arrSize = size(MzFile,'M');
        elseif exist('MinpFile','var')
-           arrSize = size(MinpFile,'Minp');      
+           arrSize = size(MinpFile,'M');      
        else
            disp('No projections');
            return
@@ -1440,6 +1440,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            chunkAmount = arrSize(4)/zStep
        else     
            zStep = arrSize(4)
+           %zStep = 1 %for 1D sample
            chunkAmount = 1
        end
        
@@ -1456,7 +1457,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            if ~isempty(strfind(params.proj,'x'))
                % process Mx projection
                disp('Mx');
-               Mx = MxFile.Mx(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
+               Mx = MxFile.M(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
                if (params.background)
                    disp('Substract background');
                    for timeInd = 1:arrSize(1)
@@ -1479,7 +1480,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                    FFTxFile.Yx(1:floor(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
                        tmp((ceil(0.5*arrSize(1))+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
                    FFTxFile.Yx(ceil(0.5*arrSize(1)):arrSize(1),1:arrSize(2),1:arrSize(3),:) =...
-                       tmp(1:ceil(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),zStart:zEnd);
+                       tmp(1:ceil(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),:);
                else
                    FFTxFile.Yx(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
                        tmp((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
@@ -1492,7 +1493,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                % process My projection
                disp('My');
                
-               My = MyFile.My(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
+               My = MyFile.M(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
                if (params.background)
                    disp('Substract background');
                    for timeInd = 1:arrSize(1)
@@ -1532,7 +1533,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                disp('Mz');
 
 
-               Mz = MzFile.Mz(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
+               Mz = MzFile.M(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
                if (params.background)
                    disp('Substract background');
                    for timeInd = 1:arrSize(1)
@@ -1571,7 +1572,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                disp('Minp');
 
 
-               Minp = MinpFile.Minp(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
+               Minp = MinpFile.M(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
 
                % calculate FFT
                disp('FFT');
