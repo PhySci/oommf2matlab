@@ -38,30 +38,40 @@ function processMuMaxTable
     SpecZ = fftshift(abs(fft(Mz.*winFunc)));
     
     fg1 = figure(1);
-        subplot(211); plot(time/1e-9,Mx,'-r'); ylabel('M_x','FontSize',14,'FontName','Times');
-        subplot(212); plot(time/1e-9,Mz,'-g'); ylabel('M_z','FontSize',14,'FontName','Times');
-        xlabel('Time (ns)','FontSize',14,'FontName','Times');
+        subplot(211);
+            plot(time/1e-9,Mx,'-r');
+            xlabel('Time (ns)','FontSize',14,'FontName','Times');
+            ylabel('M_x','FontSize',14,'FontName','Times');
+            xlim([0 time(end)/1e-9]); legend('M_x');
+        
+        subplot(212);
+            plot(time/1e-9,Mz,'-g');
+            xlabel('Time (ns)','FontSize',14,'FontName','Times');
+            ylabel('M_z','FontSize',14,'FontName','Times');
+            xlim([0 time(end)/1e-9]);  legend('M_y')
+        
+        legend('M_x')
         savefig(fg1,'MT.fig');
         print(fg1,'-dpng','-r600','MT.png');
+
             
    fg2 = figure(2);
-        %semilogy(freqScale,[SpecX SpecZ]);
-        plot(freqScale,SpecZ,'-rx');
-        xlim([0 8]);
-        legend('Mz');
-        xlabel('Frequency (GHz)','FontSize',14,'FontName','Times');
+        semilogy(freqScale,[SpecX SpecZ]);
+        xlim([1 5]); xlabel('Frequency (GHz)','FontSize',14,'FontName','Times');
         ylabel('Spectral density (arb. units)','FontSize',14,'FontName','Times');
-        print(fg2,'-dpng','-r600','specsMz.png');
-        savefig(fg2,'specsMz.fig');
+        legend('M_x','M_z');
+        
+        print(fg2,'-dpng','-r600','logSpec.png'); 
+        savefig(fg2,'logSpec.fig');
    
    fg3 = figure(3);
-        plot(freqScale,SpecX,'-rx');
-        xlim([0.1 8]);
-        legend('Mx');
-        xlabel('Frequency (GHz)','FontSize',14,'FontName','Times');
-        ylabel('Spectral density (arb. units)','FontSize',14,'FontName','Times');
-        print(fg3,'-dpng','-r600','specsMx.png');
-        savefig(fg3,'specsMx.fig');     
+            plot(freqScale,[SpecX SpecZ]);
+            xlim([2 4]); legend('M_x','M_z')
+            xlabel('Frequency (GHz)','FontSize',14,'FontName','Times');
+            ylabel('Spectral density (arb. units)','FontSize',14,'FontName','Times');
+        
+        print(fg3,'-dpng','-r600','linSpec.png');
+        savefig(fg3,'linSpec.fig');     
            
 end
 

@@ -1,5 +1,3 @@
-+ perform "fftshift" for fourier transformation before save to file. It will allow to easily select only desired range of frequencies for calculation of dispersion curve and spatial distribution of FFT intensity and phase;
-
 - analize all code of OOMF_sim class and find common parts of code, like a "set legend", "mean(mean(x,3),4)" etc. Create small protected function for replacing thus parts of code.
 
 - have a look to function "mean"

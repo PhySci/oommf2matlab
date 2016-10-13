@@ -29,7 +29,7 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
      params = p.Results;
      
      if (isempty(params.path))
-       [fName,fPath,~] = uigetfile({'*.odt'});
+       [fName,fPath,~] = uigetfile({'*.odt';'*.txt'});
        params.path = fullfile(fPath,fName);
      end    
      
@@ -40,42 +40,58 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
      end
      
      obj.fName = params.path;
-  
-     [IOmess, errnum] = ferror(fid);
-     if (errnum ~= 0)
-       disp(IOmess);
-       return;
-     end
-  
-     format = fgetl(fid);
-     if strfind(format,'ODT 1.0') 
-       fgetl(fid);
-       obj.title = fgetl(fid);
-       splitStr = regexp(fgetl(fid), '^# Columns: ','split');
-       obj.colNames = parseTextStr(splitStr{1,2});
-       splitStr = regexp(fgetl(fid), '^# Units: ','split');
-       obj.unitNames = parseTextStr(splitStr{1,2});
-       data = zeros(1,size(obj.unitNames,1));
-       while (~feof(fid))
-         line = fgetl(fid);
-         if (isempty(strfind(line,'#')))
-           data(end+1,:) = parseDigitalStr(line);
+     [~,~,ext] = fileparts(fName); 
+     
+     if strcmp(ext,'.txt')
+       res = importdata(params.path);
+       obj.data = res.data;
+
+       obj.time = res.data(:,1); 
+       obj.Mx = res.data(:,2);
+       obj.My = res.data(:,3);
+       obj.Mz = res.data(:,4);
+       obj.Bx = res.data(:,6);
+       obj.By = res.data(:,7);
+       obj.Bz = res.data(:,8);
+     else
+     
+         [IOmess, errnum] = ferror(fid);
+         if (errnum ~= 0)
+           disp(IOmess);
+           return;
          end
-       end
-     else
-       disp('Unknown format');
+
+         format = fgetl(fid);
+         if strfind(format,'ODT 1.0') 
+           fgetl(fid);
+           obj.title = fgetl(fid);
+           splitStr = regexp(fgetl(fid), '^# Columns: ','split');
+           obj.colNames = parseTextStr(splitStr{1,2});
+           splitStr = regexp(fgetl(fid), '^# Units: ','split');
+           obj.unitNames = parseTextStr(splitStr{1,2});
+           data = zeros(1,size(obj.unitNames,1));
+           while (~feof(fid))
+             line = fgetl(fid);
+             if (isempty(strfind(line,'#')))
+               data(end+1,:) = parseDigitalStr(line);
+             end
+           end
+         else
+           disp('Unknown format');
+         end
+
+         if (errnum ~= 0)
+           disp(IOmess);
+           return;
+         else
+           disp('File was uploaded');  
+         end    
+
+         fclose(fid);
+         obj.data = data(2:end,:);
+         obj.parse;
      end
      
-     if (errnum ~= 0)
-       disp(IOmess);
-       return;
-     else
-       disp('File was uploaded');  
-     end    
-     
-     fclose(fid);
-     obj.data = data(2:end,:);
-     obj.parse;
      obj.calcFreqScale
    end  
    
@@ -130,11 +146,13 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
      else
        semilogy(obj.freqScale/1e9,Y);  
      end    
-     xlabel('Freq, GHz'); 
+     xlabel('Frequency (GHz)'); 
      xlim([params.freqLim(1) params.freqLim(2)]);
-     ylabel('FFT intensity');
+     ylabel('SD (arb. units)');
      title('FFT of M_z projection');
-      
+     
+     set(gca,'FontSize',18,'FontName','Times','FontWeight','bold');
+     
      % save img
      if (~strcmp(params.saveAs,''))
          savefig(strcat(params.saveAs,'.fig'));
@@ -205,6 +223,8 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
        end    
    end    
    
+   % plot time dependece of Mz magnetization
+   % - 
    function plotMz(obj,varargin)
        
        p = inputParser;
@@ -214,7 +234,9 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
        
        plot(obj.time/1e-9,obj.Mz);
        xlim([0 1.01* obj.time(end)/1e-9]);
-       xlabel('Time, ns'); ylabel('M_z, a.u.');
+       xlabel('Time (ns)'); ylabel('M_z (arb. units)');
+       
+       set(gca,'FontSize',18,'FontName','Times','FontWeight','bold');
        
        if (~strcmp(params.saveAs,''))
            savefig(strcat(params.saveAs,'.fig'));

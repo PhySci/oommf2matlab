@@ -228,7 +228,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      
      if (strcmp(name,'') && strcmp(ext,''))
          [obj.fName,fPath,~] = uigetfile({'*.omf'; '*.ohf'; '*.stc'; '*.ovf'});
-         fName = fullfile(fPath,fName);  
+         fName = fullfile(fPath,obj.fName);  
      elseif (strcmp(ext,''))
          fName = strcat(obj.fName,'.',params.fileExt);
      else
@@ -327,23 +327,62 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    % Plot vector plot of magnetisation in XY plane
    % z is number of plane
    % should be rewritted 
-   function plotMSurfXY(obj,slice,proj,varargin)
+   function plotMSurfXY(obj,varargin)
      p = inputParser;
-     p.addRequired('slice',@isnumeric);
-     p.addRequired('proj',@ischar);
+     p.addParamValue('slice',8,@isnumeric);
+     p.addParamValue('proj',@ischar);
      
      p.addParamValue('saveAs','',@isstr);
      p.addParamValue('colourRange',0,@isnumeric);
-     p.addParamValue('xrange',':',@isnumeric);
-     p.addParamValue('yrange',':',@isnumeric);
+     p.addParamValue('xRange',0,@isnumeric);
+     p.addParamValue('yRange',0,@isnumeric);
+     p.addParamValue('timeFrame',1,@isnumeric);
      
-     p.parse(slice,proj,varargin{:});
+     p.parse(varargin{:});
      params = p.Results;
        
-     handler = obj.abstractPlot('Z',params.slice,params.proj,...
-         'saveImg',params.saveImg,'saveImgPath',params.saveImgPath,...
-         'colourRange',params.colourRange,'showScale',params.showScale,...
-         'xrange',params.xrange,'yrange',params.yrange);                  
+     mFile = matfile('Mz.mat');
+     sizeArr = size(mFile,'M');
+     
+     obj.getSimParams();
+     
+     if (params.xRange == 0)
+         params.xRange = [1 sizeArr(2)];
+     end    
+     
+     if (params.yRange == 0)
+         params.yRange = [1 sizeArr(3)];
+     end    
+     
+     % read data
+     data = squeeze(mFile.M(params.timeFrame,params.xRange(1):params.xRange(2),...
+         params.yRange(1):params.yRange(2),params.slice)).';
+     data0 = squeeze(mFile.M(2040,params.xRange(1):params.xRange(2),...
+         params.yRange(1):params.yRange(2),params.slice)).';
+     data = data - data0;
+     
+     % filtering
+     winSize = 20;
+     G = fspecial('gaussian',[winSize winSize],0.9);
+     data = imfilter(data,G,'circular','same','conv');
+     
+     % calculate scales
+     xScale = linspace(obj.xmin,obj.xmax,obj.xnodes);
+     xScale = xScale(params.xRange(1):params.xRange(2))*1e6;
+     
+     yScale = linspace(obj.ymin,obj.ymax,obj.ynodes);
+     yScale = yScale(params.yRange(1):params.yRange(2))*1e6;
+     
+     % plot data
+     imagesc(xScale,yScale,data);
+     axis xy equal
+     xlim([xScale(1) xScale(end)]); ylim([yScale(1) yScale(end)]);
+     %colorbar();
+     set(gca,'FontSize',16,'FontName','Times','FontWeight','bold');
+     xlabel('x (\mum)','FontSize',20); ylabel('y (\mum)','FontSize',20); 
+     
+     % save image
+     obj.savePlotAs(params.saveAs,gcf);
    end
    
    % plot vector plot of magnetisation in XY plane
@@ -382,19 +421,15 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        % calculate spatial scales
        
        xScale = linspace(obj.xmin,obj.xmax,obj.xnodes)/1e-6;
-       yScale = linspace(obj.ymin,obj.ymax,obj.ynodes)/1e-6;
+       yScale = linspace(obj.zmin,obj.zmax,obj.znodes)/1e-6;
        
 
-       imagesc(xScale,yScale,M.');
+       imagesc(xScale,yScale,M.'/1e3);
        axis xy;
-           xlabel('X, \mum','FontSize',14,'FontName','Times');
-           ylabel('Z, \mum','FontSize',14,'FontName','Times');
-           colorbar
-
-       
-       %handler = obj.abstractPlot('Y',params.slice,params.proj,...
-       %    'saveImg',params.saveImg,'saveImgPath',params.saveImgPath,...
-       %    'colourRange',params.colourRange,'showScale',params.showScale);
+           xlabel('x (\mum)','FontSize',14,'FontName','Times');
+           ylabel('z (\mum)','FontSize',14,'FontName','Times');
+           t = colorbar('peer',gca);
+           set(get(t,'ylabel'),'String','M_S (kA/m)','FontSize',14,'FontName','Times');
    end
    
    % plot vector plot of magnetisation in XZ plane
@@ -585,6 +620,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      p.parse(path,varargin{:});
      params = p.Results;
      
+     
      if strcmp(params.savePath,'')
          savePath = path;
      else
@@ -599,7 +635,9 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      elseif (isempty(params.fileExt))
          disp('Unknown physical value');
          return
-     end    
+     end
+     
+     profile on
                 
      fList = obj.getFilesList(path,params.fileBase,params.fileExt);     
      file = fList(1);
@@ -610,7 +648,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
           
      % evaluate required memory and compare with available space
       % memory required for one time frame 
-     oneTimeFrameMemory = 8*obj.xnodes*obj.ynodes*obj.znodes*obj.dim;
+     oneTimeFrameMemory = 3*8*obj.xnodes*obj.ynodes*obj.znodes*obj.dim;
 
      availableSpace = obj.getMemory();
     
@@ -669,6 +707,10 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
              delete(strcat(obj.fName,'.',fileExt));
          end                       
      end
+     
+     profsave
+     profile viewer
+     
    end
             
    % return slice of space
@@ -733,18 +775,18 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    end
    
    function res = getIndex(obj,symb)
-   if (strcmp(symb,'X'))
-      res = 1;
-   elseif (strcmp(symb,'Y'))
-      res = 2;
-   elseif (strcmp(symb,'Z'))
-      res = 3;
-   elseif (strcmp(symb,':'))
-      res = ':'; 
-   else
-      disp('Unknown index');
-      return;
-   end    
+       if (strcmp(symb,'X'))
+           res = 1;
+       elseif (strcmp(symb,'Y'))
+           res = 2;
+       elseif (strcmp(symb,'Z'))
+           res = 3;
+       elseif (strcmp(symb,':'))
+           res = ':';
+       else
+           disp('Unknown index');
+           return;
+       end
    end
     
    % plot dispersion curve along X axis
@@ -787,7 +829,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        obj.getSimParams;
        
        MFile = matfile(fullfile(obj.folder,strcat('M',params.proj,'FFT.mat')));
-       mSize = size(MFile,strcat('Y',params.proj));
+       mSize = size(MFile,'Y');
        
        % process input range parameters
        if (params.xRange == 0)
@@ -809,19 +851,19 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        
        if (strcmp(params.proj,'z'))
-           FFTres = MFile.Yz(freqScaleInd(1):freqScaleInd(2),params.xRange(1):params.xRange(2),...
+           FFTres = MFile.Y(freqScaleInd(1):freqScaleInd(2),params.xRange(1):params.xRange(2),...
                params.yRange(1):params.yRange(2),...
                params.zRange(1):params.zRange(2));
        elseif (strcmp(params.proj,'x'))
-           FFTres = MFile.Yx(freqScaleInd(1):freqScaleInd(2),params.xRange(1):params.xRange(2),...
+           FFTres = MFile.Y(freqScaleInd(1):freqScaleInd(2),params.xRange(1):params.xRange(2),...
                params.yRange(1):params.yRange(2),...`
                params.zRange(1):params.zRange(2));   
        elseif (strcmp(params.proj,'y'))
-           FFTres = MFile.Yy(freqScaleInd(1):freqScaleInd(2),params.xRange(1):params.xRange(2),...
+           FFTres = MFile.Y(freqScaleInd(1):freqScaleInd(2),params.xRange(1):params.xRange(2),...
                params.yRange(1):params.yRange(2),...
                params.zRange(1):params.zRange(2));
        elseif (strcmp(params.proj,'inp'))
-           FFTres = MFile.Yinp(freqScaleInd(1):freqScaleInd(2),params.xRange(1):params.xRange(2),...
+           FFTres = MFile.Y(freqScaleInd(1):freqScaleInd(2),params.xRange(1):params.xRange(2),...
                params.yRange(1):params.yRange(2),...
                params.zRange(1):params.zRange(2));    
        else
@@ -926,19 +968,18 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        imagesc(waveVectorScale,freqScale,res);
             
        colormap(jet); axis xy;
-       xlabel(strcat('Wave vector k_',directionLabel,' (rad/\mum)'),'FontSize',16,'FontName','Times');
-       ylabel('Frequency (GHz)','FontSize',16,'FontName','Times');
+       set(gca,'FontSize',16,'FontName','Times');
+       xlabel(strcat('Wave vector k_',directionLabel,' (rad/\mum)'));
+       ylabel('Frequency (GHz)');
        xlim([min(waveVectorScale) max(waveVectorScale)]);
        
        
        t = colorbar('peer',gca);
-       set(get(t,'ylabel'),'FontSize',16,'FontName','Times');
        if (strcmp(params.scale,'log'))
            set(get(t,'ylabel'),'String', 'FFT intensity (dB)');
        else
            set(get(t,'ylabel'),'String', 'Intensity (arb. units)');
        end    
-       set(gca,'FontSize',14,'FontName','Times');
        
        % save img
        obj.savePlotAs(params.saveAs,gcf);       
@@ -978,7 +1019,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        % assign file of FFT of Mz
        MzFFTFile = matfile(fullfile(obj.folder,'MzFFT.mat'));
-       MzFFTSize = size(MzFFTFile,'Yz');
+       MzFFTSize = size(MzFFTFile,'Y');
        
        % process range parameters
        if (params.xRange  == 0)
@@ -1002,7 +1043,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        shiftFreqScale = ifftshift(freqScale);
        [~,freqInd] = min(abs(shiftFreqScale-params.freq));
        
-       fftSlice = MzFFTFile.Yz(freqInd,params.xRange(1):params.xRange(2),...
+       fftSlice = MzFFTFile.Y(freqInd,params.xRange(1):params.xRange(2),...
            params.yRange(1):params.yRange(2),params.zSlice);
        
        if (size(fftSlice,4)>1)
@@ -1029,7 +1070,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        end    
 
        % plot amplitude map
-       fg = figure(1);
+       fg1 = figure(1);
        %subplot(2,1,1);
            ref = min(Amp(find(Amp(:))));
 
@@ -1044,6 +1085,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                %cbunits('dB');
            else
                imagesc(yScale,xScale,Amp,[0 1.05*max(Amp(:))]);
+               axis xy equal;
                hcb = colorbar('EastOutside');
                %cbunits('a.u.');
            end    
@@ -1070,15 +1112,15 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
           
        
        % save figure
-       obj.savePlotAs(params.saveAs,strcmp(fg1,'-amp'));
-       obj.savePlotAs(params.saveAs,strcmp(fg1,'-phase'));
+       obj.savePlotAs(params.saveAs,fg1,'suffix','-amp');
+       obj.savePlotAs(params.saveAs,fg2,'suffix','-phase');
    end 
    
    
     % plot spatial map of FFT distribution for a given frequency
     % parameters
-    %       - freq is desired frequency
-      % plot spatial map of FFT distribution for a given frequency
+    %       freq - desired frequency
+    %       rotate - rotate the image (false) 
    function plotFFTSliceY(obj,varargin)
     p = inputParser;
    
@@ -1091,8 +1133,10 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        p.addParamValue('scale','log', @(x) any(strcmp(x,{'norm','log'})));
        p.addParamValue('saveAs','',@isstr);
-       p.addParamValue('proj','z',@(x)any(strcmp(x,obj.availableProjs)))
+       p.addParamValue('proj','z',@(x)any(strcmp(x,obj.availableProjs)));
        
+       p.addParamValue('rotate',false,@islogical);
+            
        p.parse(varargin{:});
        params = p.Results;
        
@@ -1103,7 +1147,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
 
        % assign file of FFT of Mz
        FFTFile = matfile(fullfile(obj.folder,strcat('M',params.proj,'FFT.mat')));    
-       arrSize = size(FFTFile,strcat('Y',params.proj));
+       arrSize = size(FFTFile,'Y');
 
        % process parameters
        if (~params.xRange)
@@ -1123,8 +1167,8 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        xScale=linspace(obj.xmin,obj.xmax,obj.xnodes)/1e-6;
        xScale = xScale(params.xRange(1):params.xRange(2));
        
-       yScale=linspace(obj.ymin,obj.ymax,obj.ynodes)/1e-6;
-       yScale = yScale(params.yRange(1):params.yRange(2));
+       %yScale=linspace(obj.ymin,obj.ymax,obj.ynodes)/1e-6;
+       %yScale = yScale(params.yRange(1):params.yRange(2));
              
        zScale= linspace(obj.zmin,obj.zmax,obj.znodes)/1e-6;
        zScale = zScale(params.zRange(1):params.zRange(2));
@@ -1137,18 +1181,18 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            case 'x'
                fftSlice = squeeze(FFTFile.Yx(freqInd,...
                    params.xRange(1):params.xRange(2),...
-                   params.yRange(1):params.yRange(2),...
+                   params.ySlice,...
                    params.zRange(1):params.zRange(2)));
            case 'y'
                fftSlice = squeeze(FFTFile.Yy(freqInd,...
                    params.xRange(1):params.xRange(2),...
-                   params.yRange(1):params.yRange(2),...
+                   params.ySlice,...
                    params.zRange(1):params.zRange(2)));
                
            case 'z'
-               fftSlice = squeeze(FFTFile.Yz(freqInd,...
+               fftSlice = squeeze(FFTFile.Y(freqInd,...
                    params.xRange(1):params.xRange(2),...
-                   params.yRange(1):params.yRange(2),...
+                   params.ySlice,...
                    params.zRange(1):params.zRange(2)));
            otherwise
                disp('Unknown projection');
@@ -1156,50 +1200,110 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        end
        
        if (size(fftSlice,3)>1)
-           Amp = squeeze(mean(abs(fftSlice),3));
-           Phase = squeeze(mean(angle(fftSlice),3));
-       end   
+           Amp = squeeze(mean(abs(fftSlice),2));
+           Phase = squeeze(mean(angle(fftSlice),2));
+       else
+           Amp = squeeze(abs(fftSlice));
+           Phase = squeeze(angle(fftSlice));
+       end
+       
+       if params.rotate
+           xScaleName = 'z (\mum)';
+           yScaleName = 'x, (\mum)';  
+       else
+           Amp = Amp.';
+           Phase = Phase.';
+           tmp = xScale;
+           xScale = zScale;
+           zScale = tmp;
+           xScaleName = 'x (mm)';
+           yScaleName = 'z (\mum)';
+       end
        
        % plot amplitude map
-       figure(5);
-       subplot(211);
-       if strcmp(params.scale,'log')
-           ref = min(Amp(find(Amp(:))));
-           if (isempty(ref))
-               ref = 1;
+       fg1 = figure(1);
+
+           if strcmp(params.scale,'log')
+               ref = min(Amp(find(Amp(:))));
+               if (isempty(ref))
+                   ref = 1;
+               end
+               val = log10(Amp);
+               imagesc(zScale/1e3,xScale,val,[0 max(val(:))]);
+               hcb =colorbar('EastOutside');
+               obj.setDbColorbar('Spectral density (dB)');
+           else
+               imagesc(zScale/1e3,xScale,Amp,[0 max(Amp(:))]);
+               hcb = colorbar('EastOutside');
+               obj.setDbColorbar('Spectral density (arb. units)');
            end
-           imagesc(yScale,xScale,log10(Amp/ref));
-           hcb =colorbar('EastOutside');
-           cbunits('dB');
-       else
-           imagesc(yScale,xScale,Amp,[0 max(Amp(:))]);
-           hcb = colorbar('EastOutside');
-           cbunits('a.u.');
-       end
-           title(['Amplitude of FFT, \nu = ' num2str(params.freq) ' GHz']);
-           axis xy;
-           ylabel('X, \mum'); xlabel('Y, \mum');
-           colormap(flipud(gray));
-           freezeColors; 
-           cbfreeze;
+           colormap(flipud(parula));
+
+          % title(['Spectral density of FFT, \nu = ' num2str(params.freq) ' GHz'],...
+          %     'FontSize',20,'FontName','Times');
+           axis xy; 
+           xlabel(xScaleName); ylabel(yScaleName); 
+           set(gca,'FontSize',18,'FontWeight','bold','FontName','Times');
            
-       subplot(212);
-           imagesc(yScale,xScale,Phase);
-           title('Phase')
+           
+           % define size of the figure
+           pos = get(fg1,'position');
+           set(fg1,'position',[pos(1),pos(1),1000,400])
+           set(fg1, 'PaperPosition', [0 0 20 8]);
+            % save figure
+           if ~isempty(params.saveAs)
+                obj.savePlotAs(strcat(params.saveAs,'-amp'),gcf); 
+           end    
+           
+       fg2 = figure(2);
+           imagesc(zScale/1e3,xScale,Phase);
+          % title(['Phase of FFT, \nu = ' num2str(params.freq) ' GHz'],...
+          %     'FontSize',20,'FontName','Times');
            axis xy; colorbar('EastOutside');
-           cblabel('rad.'); colormap(hsv);
-           ylabel('X, \mum'); xlabel('Y, \mum');
+           %cblabel('rad.');
+           colormap(hsv);
+           xlabel(xScaleName); ylabel(yScaleName); 
+           obj.setDbColorbar('Phase (rad)');
+           set(gca,'FontSize',18,'FontWeight','bold','FontName','Times');
            
-                     
-       % save figure
-       obj.savePlotAs(params.saveAs,gcf);   
-                     
-       % save figure
-       obj.savePlotAs(params.saveAs,gcf);   
+           % define size of the figure
+           pos = get(fg2,'position');
+           set(fg2,'position',[pos(1),pos(1),1000,400])
+           set(fg2, 'PaperPosition', [0 0 20 8]);
+         
+           % save figure
+           if ~isempty(params.saveAs)
+               obj.savePlotAs(strcat(params.saveAs,'-phase'),gcf); 
+           end
+           
+       fg3 = figure(3);
+           mod = Amp;
+           mod(isinf(mod)) = 0;
+           sliceAbs = mean(mod);
+           
+           plot(zScale/1e3,sliceAbs);
+           xlabel(xScaleName); xlim([min(zScale/1e3) max(zScale/1e3)])
+           ylabel('Average SD (arb. units)');
+           set(gca,'FontSize',18,'FontWeight','bold','FontName','Times');
+           % define size of the figure
+           pos = get(fg3,'position');
+           set(fg3,'position',[pos(1),pos(1),1000,400])
+           set(fg3, 'PaperPosition', [0 0 20 8]);
+         
+           % save figure
+           if ~isempty(params.saveAs)
+               obj.savePlotAs(strcat(params.saveAs,'-powerAbs'),gcf); 
+           end
+           
+       save data.mat Amp Phase sliceAbs    
    end 
      
    % plot average dependence of FFT intensity on frequency
    % The absolute value of FFT coefficients are averaged over volume.
+   % params:
+   %    scale - log or norm scale of the output dependence (norm)
+   %    proj  - desirable projection of magnetization (@TODO, is broken)
+   %    xRange, yRange, zRange - spatial range of region of interest 
    function plotFFTIntensity(obj,varargin)
        
        p = inputParser;
@@ -1211,13 +1315,14 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        p.addParamValue('yRange',0,@isnumeric);
        p.addParamValue('zRange',0,@isnumeric);
        p.addParamValue('saveAs','',@isstr);
+       p.addParamValue('freqLimit',[0 25],@isnumeric)
        
        p.parse(varargin{:});
        params = p.Results;
        
        FFTFile = matfile('MzFFT.mat'); 
        
-       mSize = size(FFTFile,strcat('Y',params.proj));
+       mSize = size(FFTFile,'Y');
        % process input range parameters
        if (params.xRange == 0)
            params.xRange = [1 mSize(2)];
@@ -1231,21 +1336,31 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            params.zRange = [1 mSize(4)];
        end
        
+       obj.getSimParams;
+       % calculate desirable range of freqeuncy
+       freqScale = obj.getWaveScale(obj.dt,mSize(1))/1e9; 
+       [~,freqScaleInd(1)] = min(abs(freqScale-params.freqLimit(1)));
+       [~,freqScaleInd(2)] = min(abs(freqScale-params.freqLimit(2)));
+       freqScale = freqScale(freqScaleInd(1):freqScaleInd(2));
        
-       FFT = FFTFile.Yz(:,params.xRange(1):params.xRange(2),...
+       
+       FFT = FFTFile.Y(freqScaleInd(1):freqScaleInd(2),...
+           params.xRange(1):params.xRange(2),...
            params.yRange(1):params.yRange(2),...
            params.zRange(1):params.zRange(2));
-       Amp = abs(mean(mean(mean(FFT,4),3),2));
+       Amp = (mean(mean(mean(abs(FFT),4),3),2));
        
-       freqScale = obj.getWaveScale(obj.dt,size(Amp,1))/1e9;
        if (strcmp(params.scale,'norm'))
            plot(freqScale,Amp);
+           ylabel('Spectral density (arb. units)');
        else
            semilogy(freqScale,Amp);
+           ylabel('Spectral density (dB)');
        end
-       xlim([0 40]); xlabel('Frequency (GHz)');
-       ylabel('FFT intensity (arb. units)');
+       xlim(params.freqLimit); xlabel('Frequency (GHz)');
        %num2clip([freqScale(find(freqScale>=0)).' Amp(find(freqScale>=0))]);
+       
+       set(gca,'FontName','Times','FontSize',16);
        
        % save figure
        obj.savePlotAs(params.saveAs,gcf);
@@ -1436,7 +1551,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        % process chunk
        if (params.chunk)
-           zStep = 2
+           zStep = 8
            chunkAmount = arrSize(4)/zStep
        else     
            zStep = arrSize(4)
@@ -1555,20 +1670,20 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
 
                disp('Write');
                if mod(arrSize(1),2)
-                   FFTzFile.Yz(1:floor(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
+                   FFTzFile.Y(1:floor(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
                        tmp((ceil(0.5*arrSize(1))+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
-                   FFTzFile.Yz(ceil(0.5*arrSize(1)):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
+                   FFTzFile.Y(ceil(0.5*arrSize(1)):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
                        tmp(1:ceil(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),:);
                else
-                   FFTzFile.Yz(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
+                   FFTzFile.Y(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
                        tmp((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
-                   FFTzFile.Yz((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
+                   FFTzFile.Y((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
                        tmp(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),:);
                end
            end
            
            if ~isempty(strfind(params.proj,'inp'))
-               % process Mz projection
+               % process Minp projection
                disp('Minp');
 
 
@@ -1587,20 +1702,19 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
 
                disp('Write');
                if mod(arrSize(1),2)
-                   FFTinpFile.Yinp(1:floor(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
+                   FFTinpFile.Y(1:floor(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
                        tmp((ceil(0.5*arrSize(1))+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
-                   FFTinpFile.Yinp(ceil(0.5*arrSize(1)):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
+                   FFTinpFile.Y(ceil(0.5*arrSize(1)):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
                        tmp(1:ceil(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),:);
                else
-                   FFTinpFile.Yinp(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
+                   FFTinpFile.Y(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
                        tmp((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
-                   FFTinpFile.Yinp((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
+                   FFTinpFile.Y((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
                        tmp(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),:);
                end
            end
        end
-       disp('Write');
-       FFTFile.Yz = fftshift(tmp);        
+     
    end
  
    % plot distribution of FFT intensity of Y component of magnetisation
@@ -1671,7 +1785,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    end    
       
    
-  function plotFreqWaveSlice(obj,freq,k,varargin)
+  function res = plotFreqWaveSlice(obj,freq,k,varargin)
    % plot amplitude and phase of modes in (y,z) coordinates
    %for given frequency and k wave number
    % PARAMS
@@ -1777,7 +1891,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            
            % axis labels
            axis1Label = 'Y (\mum)';
-           axis2Label = 'Z (\mum)';
+           axis2Label = 'X (\mum)';
            
            % axis scale
            axis2Scale = linspace(params.yRange(1)*obj.ystepsize,...
@@ -1808,8 +1922,8 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            YtsSlice = squeeze(Yts(:,:,kInd));
            
            % axis labels
-           axis1Label = 'X (\mum)';
-           axis2Label = 'Y (\mum)';
+           axis1Label = 'Y (\mum)';
+           axis2Label = 'X (\mum)';
            
            % axis scale
            axis1Scale = linspace(params.xRange(1)*obj.xstepsize,...
@@ -1828,38 +1942,56 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        % plot results
        Amp = abs(YtsSlice);
        Phase = angle(YtsSlice);
-       fig1 = figure(2);
-       subplot(211);
-           imagesc(axis2Scale,axis1Scale,Amp.',[0 max(Amp(:))]);
-           axis xy
-           xlabel(axis1Label); ylabel(axis2Label);
-           obj.setDbColorbar();
-           colormap(flipud(gray));
-           freezeColors;
-           cbfreeze;
-           title(['\nu = ',num2str(params.freq),' GHz, k = ',num2str(params.k),...
-               '\mum, M_',params.proj,' projection'],'FontSize',14,'FontName','Times');
        
-       subplot(212);
-           imagesc(axis2Scale,axis1Scale,Phase.',[-pi pi]);
-           axis xy
-           xlabel(axis1Label); ylabel(axis2Label);
-           colorbar('EastOutside');
-           cblabel('rad.');
-           colormap(hsv);
+       fig1 = figure(1);
+           subplot(211);
+               imagesc(axis2Scale,axis1Scale,Amp.',[0 max(Amp(:))]);
+               axis xy
+               xlabel(axis2Label); ylabel(axis1Label);
+               obj.setDbColorbar();
+               colormap(flipud(gray));
+               freezeColors;
+               cbfreeze;
+               title(['\nu = ',num2str(params.freq),' GHz, k = ',num2str(params.k),...
+                   '\mum, M_',params.proj,' projection'],'FontSize',14,'FontName','Times');
+
+           subplot(212);
+               imagesc(axis2Scale,axis1Scale,Phase.',[-pi pi]);
+               axis xy
+               xlabel(axis2Label); ylabel(axis1Label);
+               colorbar('EastOutside');
+               cblabel('rad.');
+               colormap(hsv);
            
-      %fig2 = figure(3);
-      %     subplot(211); plot(axis2Scale,mean(Amp,1));
-      %     title(['\nu = ',num2str(params.freq),' GHz, k = ',num2str(params.k),...
-      %         '\mum, M_',params.proj,' projection'],'FontSize',14,'FontName','Times');
-      %     xlabel(axis1Label); ylabel('Amplitude (arb. u.)')
-      
-      %     phasePlot = mean(Phase,1);
-      %     phasePlot(find(phasePlot<0)) = phasePlot(find(phasePlot<0))+2*pi;
-           
-      %     subplot(212); plot(axis2Scale,phasePlot);
-      %          xlabel(axis1Label); ylabel('Phase (rad)')
-      
+      fig2 = figure(2);
+          meanAmp = mean(Amp,1);
+          meanPhase = mean(Phase,1);
+          res = meanAmp;
+          subplot(211);
+              plot(axis2Scale,meanAmp);
+              title(['\nu = ',num2str(params.freq),' GHz, k = ',num2str(params.k),...
+                   '\mum, M_',params.proj,' projection'],'FontSize',14,'FontName','Times');
+              xlabel(axis2Label); ylabel('Amplitude (arb. u.)')
+
+            
+          subplot(212);
+              meanPhase(find(meanPhase<0)) = meanPhase(find(meanPhase<0))+2*pi;
+              plot(axis2Scale,meanPhase);
+              xlabel(axis2Label); ylabel('Phase (rad)');
+       
+      fig3 = figure(3);
+          x = Amp(1,:).*cos(Phase(1,:)); 
+          y = Amp(1,:).*sin(Phase(1,:)); 
+
+          subplot(211);
+              plot(axis2Scale,x);
+              xlabel(axis1Label); ylabel('Amplitude (arb. u.)');
+          subplot(212);
+              plot(axis2Scale,y);
+              xlabel(axis1Label); ylabel('Amplitude (arb. u.)');
+              
+          save branch4.mat Amp Phase    
+
        % save img
        if (~strcmp(params.saveAs,''))
            fName = strcat(params.saveAs,'_f',num2str(params.freq),'GHz_k',...
@@ -1904,109 +2036,234 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        % load file of static configuration
        [MxStatic,MyStatic,MzStatic] = obj.getStatic(obj.folder);
        
-       InpX = zeros(obj.xnodes,obj.ynodes,obj.znodes);
-       InpY = zeros(obj.xnodes,obj.ynodes,obj.znodes);
-       
-       InpX = sqrt((MyStatic(params.xRange,params.yRange,params.zRange).^2)./...
-                 (MxStatic(params.xRange,params.yRange,params.zRange).^2+...
-                  MyStatic(params.xRange,params.yRange,params.zRange).^2));
-       InpY = sqrt((MxStatic(params.xRange,params.yRange,params.zRange).^2)./...
-             (MxStatic(params.xRange,params.yRange,params.zRange).^2+...
-             MyStatic(params.xRange,params.yRange,params.zRange).^2));
-       % calculate coordinates of normal plane for every points
-
-       % load magnetization
-       MxFile = matfile(obj.MxName);
-       MyFile = matfile(obj.MyName);
-       MzFile = matfile(obj.MzName);
-       timeFrames = size(MxFile,'Mx',1);
-       
-       % initialize array of in-plane magnetization 
-       Minp = zeros(timeFrames,obj.xnodes,obj.ynodes,obj.znodes);
-                   
-                   
-       for timeStep = 1:timeFrames
-           disp(timeStep);
-           Mx = squeeze(MxFile.Mx(timeStep,params.xRange,...
-                           params.yRange,params.zRange));
-           My = squeeze(MyFile.My(timeStep,params.xRange,...
-                           params.yRange,params.zRange));
-           Minp(timeStep,params.xRange,params.yRange,params.zRange) = ...
-                 Mx.*InpX+My.*InpY;
-       end    
+       switch params.normalAxis
+           case 'z'
+               InpX = zeros(obj.xnodes,obj.ynodes,obj.znodes);
+               InpY = zeros(obj.xnodes,obj.ynodes,obj.znodes);
+               
+               InpX = sqrt((MyStatic(params.xRange,params.yRange,params.zRange).^2)./...
+                   (MxStatic(params.xRange,params.yRange,params.zRange).^2+...
+                   MyStatic(params.xRange,params.yRange,params.zRange).^2));
+               InpY = sqrt((MxStatic(params.xRange,params.yRange,params.zRange).^2)./...
+                   (MxStatic(params.xRange,params.yRange,params.zRange).^2+...
+                   MyStatic(params.xRange,params.yRange,params.zRange).^2));
+               % calculate coordinates of normal plane for every points
+               
+               % load magnetization
+               MxFile = matfile(obj.MxName);
+               MyFile = matfile(obj.MyName);
+               MzFile = matfile(obj.MzName);
+               timeFrames = size(MxFile,'Mx',1);
+               
+               % initialize array of in-plane magnetization
+               Minp = zeros(timeFrames,obj.xnodes,obj.ynodes,obj.znodes);
+               
+               
+               for timeStep = 1:timeFrames
+                   disp(timeStep);
+                   Mx = squeeze(MxFile.Mx(timeStep,params.xRange,...
+                       params.yRange,params.zRange));
+                   My = squeeze(MyFile.My(timeStep,params.xRange,...
+                       params.yRange,params.zRange));
+                   Minp(timeStep,params.xRange,params.yRange,params.zRange) = ...
+                       Mx.*InpX+My.*InpY;
+               end
+       end
        
        mFile = matfile('Minp.mat','Writable',true);
        mFile.Minp = Minp; 
    end 
    
-   
+   %% Interpolation of time dependence
    function interpTimeDependence(obj, varargin)
-   % Interpolatation of time dependences for non-regular time step
-  
-   % read input patameters  
+       % Interpolatation of time dependences for non-regular time step
+       
+       % read input patameters
        p = inputParser;
        p.addParamValue('tableFile','table.txt',@isstr);
        p.addParamValue('value','M',@(x) any(strcmp(x,{'M','H'})));
        p.parse(varargin{:});
        params = p.Results;
-     
        
-     tableData=[];
-     % read tableFile, get time scale
-     try 
-         table = importdata(params.tableFile)
-         tableData = table.data;
-%          fid = fopen(params.tableFile);
-%          fgetl(fid); % skip first text line
-% %          while ~feof(fid)
-% %              line = fgetl(fid);
-% %              tableData = [tableData; sscanf(line,'%g').'];
-%          end    
-%          fclose(fid);
-     catch err
-         disp(err.message);
-         return
-     end
-     
-     % load projection of magnetisation
-     timeScaleOld = tableData(:,1); % original time scale
-     timeScaleNew = linspace(timeScaleOld(1),timeScaleOld(end),size(timeScaleOld,1)).';
-     %parpool(8);
-     
-     % interpolate
-     switch params.value
-         case 'M'
-             MFile = matfile('Mx.mat');
-             OutMFile = matfile('MxInterp.mat');
-             OutMFile.Mx = obj.interpArray(MFile.Mx, timeScaleOld, timeScaleNew)
-             
-             MFile = matfile('My.mat');
-             OutMFile = matfile('MyInterp.mat');
-             OutMFile.My = obj.interpArray(MFile.My, timeScaleOld, timeScaleNew)
-             
-             MFile = matfile('Mz.mat');
-             OutMFile = matfile('MzInterp.mat');
-             OutMFile.Mz = obj.interpArrayPar(MFile.Mz, timeScaleOld, timeScaleNew)
-             
-             MFile = matfile('Minp.mat');
-             OutMFile = matfile('MinpInterp.mat');
-             OutMFile.Minp = obj.interpArray(MFile.Minp, timeScaleOld, timeScaleNew)
-         case 'H'
-             MFile = matfile('Hx.mat');
-             OutMFile = matfile('HxInterp.mat');
-             OutMFile.Mx = obj.interpArray(MFile.Hx, timeScaleOld, timeScaleNew)
-             
-             MFile = matfile('Hy.mat');
-             OutMFile = matfile('HyInterp.mat');
-             OutMFile.My = obj.interpArray(MFile.Hy, timeScaleOld, timeScaleNew)
-             
-             MFile = matfile('Hz.mat');
-             OutMFile = matfile('HzInterp.mat');
-             OutMFile.Mz = obj.interpArrayPar(MFile.Hz, timeScaleOld, timeScaleNew)
-         otherwise
-             disp('Unknown physical value');
-     end    
+       obj.getSimParams();
+       
+       tableData=[];
+       % read tableFile, get time scale
+       try
+           table = importdata(params.tableFile)
+           tableData = table.data;
+       catch err
+           disp(err.message);
+           return
+       end
+       
+       % load projection of magnetisation
+       timeScaleOld = tableData(:,1); % original time scale
+       timeScaleNew = linspace(timeScaleOld(1),timeScaleOld(end),size(timeScaleOld,1)).';
+       %parpool(8);
+       
+       % interpolate
+       switch params.value
+           case 'M' 
+               obj.interpArray(matfile('Mz.mat'), matfile('MzInterp.mat'), timeScaleOld, timeScaleNew);
+               %obj.interpArray(matfile('Mx.mat'), matfile('MxInterp.mat'), 'Mz', timeScaleOld, timeScaleNew);
+               %obj.interpArray(matfile('My.mat'), matfile('MyInterp.mat'), 'Mz', timeScaleOld, timeScaleNew);
+           case 'H'
+               MFile = matfile('Hx.mat');
+               OutMFile = matfile('HxInterp.mat');
+               OutMFile.Mx = obj.interpArray(MFile.Hx, timeScaleOld, timeScaleNew)
+               
+               MFile = matfile('Hy.mat');
+               OutMFile = matfile('HyInterp.mat');
+               OutMFile.My = obj.interpArray(MFile.Hy, timeScaleOld, timeScaleNew)
+               
+               MFile = matfile('Hz.mat');
+               OutMFile = matfile('HzInterp.mat');
+               OutMFile.Mz = obj.interpArrayPar(MFile.Hz, timeScaleOld, timeScaleNew)
+           otherwise
+               disp('Unknown physical value');
+       end
+       
+   end
+   
+   %% Plot surface coordinate-time
+   % Useful for visualization of propagation of spin waves
+   % startTime - first time point to display (ns)
+   function plotWaveSurf(obj,varargin)
+       % read input patameters
+       
+       p = inputParser;
+       p.addParamValue('zSlice',1,@isnumeric);
+       p.addParamValue('ySlice',1,@isnumeric);
+       p.addParamValue('limit',0,@isnumeric);
+       p.addParamValue('saveAs','',@isstr);
+       p.addParamValue('startTime',0,@isnumeric);
+       
+       p.parse(varargin{:});      
+       params = p.Results;
+       
+       obj.getSimParams();
+       
+       timeInd = ceil(params.startTime*(1e-9)/obj.dt);
+       
+       if (timeInd == 0)
+           timeInd = 1;
+       end    
+       
+       MFile = matfile('Mz.mat');
+       data = MFile.M(timeInd:end,:,params.ySlice,params.zSlice);
+       xScale = linspace(obj.xmin,obj.xmax,obj.xnodes)/1e-6;
+       timeScale = linspace(obj.dt*timeInd,obj.dt*(size(data,1)+timeInd),size(data,1))/1e-9;
+       
+       if params.limit ==0
+           params.limit = max(abs(data(:)));
+       end
+       
+       imagesc(xScale,timeScale,data,[-params.limit params.limit]);
+       set(gca,'FontName','Times','FontSize',16,'FontWeight','bold');
+       colormap(jet); colorbar();
+       axis xy
+       xlabel('X (\mum)'); ylabel('Time (ns)')
+       
+        obj.savePlotAs(params.saveAs,gcf);
+   end
+   
+   %% plot slice of magnetization along OX axis and spatial FFT  
+   % params:
+   %     ySlice    - number of slice along OY axis
+   %     zSlice    - number of slice along OZ axis
+   %     timeFrame - number of time frame
+   %     saveAs    - name of output graphical files
+   function plotLinSlice(obj,varargin)
+       p = inputParser;
+       
+       p.addParamValue('ySlice',[10 20],@isnumeric);
+       p.addParamValue('zSlice',8,@isnumeric);
+       p.addParamValue('timeFrame',984,@isnumeric);
+       p.addParamValue('saveAs','',@isstr);
+       p.addParamValue('baseline',true,@islogical);
+        
+       % experimental parameters
+       spotSize = 400e-9; % nm
+       
+       p.parse(varargin{:});      
+       params = p.Results;      
+       obj.getSimParams();
+       
+       mFile = matfile('Mz');
+       M = squeeze(mFile.M(params.timeFrame,:,params.ySlice(1):params.ySlice(2),params.zSlice)-...
+                     mFile.M(1,:,params.ySlice(1):params.ySlice(2),params.zSlice));
+       
+       % subtract baseline
+       if params.baseline
+           M = M - mean(M(:));
+       end    
+       
+       % Gauss window along OY axis
+       gaussWidth = floor(spotSize/obj.ystepsize);
+       w1= window(@gausswin,gaussWidth);
+       w1 = w1/sum(w1); % normalize window function
+       for xInd = 1:size(M,1)
+           M(xInd,:) = conv(M(xInd,:),w1,'same');
+       end    
+       M = mean(M,2);
+       
+       % Gauss window along OX axis
+       gaussWidth = floor(spotSize/obj.xstepsize);
+       w2= window(@gausswin,gaussWidth);
+       w2 = w2/sum(w2);  % normalize window function
+       M = conv(M,w2,'same');
+       
+       % Gauss window along OX axis
+       gaussWidth = floor(spotSize/obj.xstepsize);
+       w2= window(@gausswin,gaussWidth);
+       w2 = w2/sum(w2);
+       M = conv(M,w2,'same');
+       
+       xScale = linspace(obj.xmin,obj.xmax,obj.xnodes)/1e-6;     
+       kScale = obj.getWaveScale(obj.xstepsize,obj.xnodes)*1e-6;
+       
+       % amp0 = abs(fftshift(fft(M0(:))));
+       amp = abs(fftshift(fft(M(:))));
+       
+       % plot results
+       subplot(211)
+           plot(xScale,M);
+           xlabel('x (\mum)','FontSize',14,'FontName','Times','FontWeight','bold');
+           ylabel('M_z (A/m)','FontName','Times','FontWeight','bold')
+           xlim([min(xScale) max(xScale)]);
+       
+       subplot(212)
+           plot(2*pi*kScale,amp);
+           xlim([0 5]);
+           xlabel('k (rad/\mum)','FontSize',14,'FontName','Times','FontWeight','bold')
+           ylabel('Spectral density (arb. units)','FontSize',14,'FontName','Times','FontWeight','bold')
+           savefig(gcf,'slice.fig')
 
+       obj.savePlotAs(params.saveAs,gcf);
+   end    
+       
+   
+   function convertFormat(obj)
+       
+       if (exist('Mz.mat'))
+           mfile = matfile('Mz.mat','Writable',true);
+           mfile.M = mfile.Mz;
+           mfile.Mz = [];
+       end
+       
+       if (exist('My.mat'))
+           mfile = matfile('My.mat','Writable',true);
+           mfile.M = mfile.My;
+           mfile.My = [];
+       end
+       
+       if (exist('Mx.mat'))
+           mfile = matfile('Mx.mat','Writable',true);
+           mfile.M = mfile.Mx;
+           mfile.Mx = [];
+       end
+       
    end    
    
    % END OF PUBLIC METHODS
@@ -2032,9 +2289,12 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    
    %% set colorbar for imagesc
    % should be protected
-   function setDbColorbar(obj)
+   function setDbColorbar(obj,text)
        t = colorbar('peer',gca);
-       set(get(t,'ylabel'),'String', 'FFT intensity, dB');
+       if isempty(text)
+           text = 'Spectral density (dB)';
+       end   
+       set(get(t,'ylabel'),'String',text,'FontSize',16,'FontName','Times');
    end
    
    %% read file of parameters
@@ -2097,43 +2357,43 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    end
    
    % interpolate array along 1st dimension
-   % inpArr - input 4D array
-   % oldScale - original scale of sampling
-   % newScale - new scale of sampling 
-   function outArr = interpArray(obj,inpArr, oldScale, newScale)
-       Sz = size(inpArr);
-       outArr = zeros(Sz);
-       tmp = zeros(Sz(1),Sz(2));
-
-       reshapeArr = permute(inpArr,[4 3 2 1]);
-       for xInd = 1:size(reshapeArr,1)
-           for yInd = 1:size(reshapeArr,2)
-               disp([num2str(xInd) ' '  num2str(yInd)]);
-               parfor zInd = 1:size(reshapeArr,3)
-                   tmp(:,zInd) =  cast(interp1(oldScale,...
-                       squeeze(reshapeArr(xInd,yInd,zInd,:)),newScale),'single');
-               end
-               outArr(:,:,yInd,xInd) = tmp;
+   %    inpArr - input file 4D array
+   %    outArr - output file 4D array
+   %    oldScale - original scale of sampling
+   %    newScale - new scale of sampling
+   
+   function interpArray(obj,inpArr,outArr,oldScale, newScale)
+       tmp = zeros(obj.xnodes*obj.znodes,size(oldScale,1));
+       outArr.M = single.empty(0,0,0,0);
+       
+       for yInd = 1:obj.ynodes
+           inpData3 = reshape(shiftdim(inpArr.M(:,:,yInd,:),1),...
+               [obj.xnodes*obj.znodes, size(oldScale,1)]);
+           
+           parfor ind = 1:size(inpData3,1)
+               tmp(ind,:) = cast(interp1(oldScale,...
+                       squeeze(inpData3(ind,:)),newScale),'single');
            end
-       end
+           
+           tmp2 = reshape(tmp,[obj.xnodes,1,obj.znodes,size(oldScale,1)]);
+           outArr.M(1:size(oldScale,1),1:obj.xnodes,yInd,1:obj.znodes) = shiftdim(tmp2,3); 
+       end    
+
    end   
    
-   function outArr = interpArrayPar(obj,inpArr, oldScale, newScale)
-       Sz = size(inpArr);
-       reshapeArr = permute(reshape(inpArr,[Sz(1) Sz(2)*Sz(3)*Sz(4)]),[2 1]);
-       outArr = zeros(size(reshapeArr));
-       parfor spatialInd = 1:size(reshapeArr,1)
-           outArr(spatialInd,:) =  cast(interp1(oldScale,reshapeArr(spatialInd,:),newScale),'single');
-       end
-       outArr = permute(outArr, [2 1]);
-       outArr = reshape(outArr,[Sz(1) Sz(2) Sz(3) Sz(4)]);
-   end
-   
-   % save current plot 
-   function savePlotAs(obj,fName,handle)
-       if (~strcmp(fName,''))
-           savefig(handle,strcat(fName,'.fig'));
-           print(handle,'-dpng',strcat(fName,'.png'));
+   % save current plot
+   function savePlotAs(obj,varargin)
+       p = inputParser;
+       p.addRequired('fName',@isstr);
+       p.addRequired('handle');
+       p.addParameter('suffix','',@isstr);
+       
+       p.parse(varargin{:});      
+       params = p.Results;
+       
+       if (~strcmp(params.fName,''))
+           savefig(params.handle,strcat(params.fName,params.suffix,'.fig'));
+           print(params.handle,'-dpng',strcat(params.fName,params.suffix,'.png'));
        end
    end 
    
@@ -2148,8 +2408,9 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                [tokens] = regexp(meminfo,'MemFree:\s*(\d+)\s','tokens');
                mem = str2double(tokens{1}{1})*1e3;
            
-           case 'PCWIN64'           
-               mem = memory.MaxPossibleArrayBytes;
+           case 'PCWIN64'
+               tmp = memory;
+               mem = tmp.MaxPossibleArrayBytes;
            otherwise
                mem = 1e3;
                disp('Unknown platform. Please, fix the bag');
@@ -2161,148 +2422,4 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
  end
  
  % END OF CLASS
-end 
-
-
-  %% create red-blue color map 
- function newmap = b2r(cmin_input,cmax_input)
-%BLUEWHITERED   Blue, white, and red color map.
-%   this matlab file is designed to draw anomaly figures, the color of
-%   the colorbar is from blue to white and then to red, corresponding to 
-%   the anomaly values from negative to zero to positive, respectively. 
-%   The color white always correspondes to value zero. 
-%   
-%   You should input two values like caxis in matlab, that is the min and
-%   the max value of color values designed.  e.g. colormap(b2r(-3,5))
-%   
-%   the brightness of blue and red will change according to your setting,
-%   so that the brightness of the color corresponded to the color of his
-%   opposite number
-%   e.g. colormap(b2r(-3,6))   is from light blue to deep red
-%   e.g. colormap(b2r(-3,3))   is from deep blue to deep red
-%
-%   I'd advise you to use colorbar first to make sure the caxis' cmax and cmin
-%
-%   by Cunjie Zhang
-%   2011-3-14
-%   find bugs ====> email : daisy19880411@126.com
-%  
-%   Examples:
-%   ------------------------------
-%   figure
-%   peaks;
-%   colormap(b2r(-6,8)), colorbar, title('b2r')
-%   
-
-
-%% check the input
-if nargin ~= 2 ;
-   disp('input error');
-   disp('input two variables, the range of caxis , for example : colormap(b2r(-3,3))')
 end
-
-if cmin_input >= cmax_input
-    disp('input error')
-    disp('the color range must be from a smaller one to a larger one')
-end
-
-%% control the figure caxis 
-lims = get(gca, 'CLim');   % get figure caxis formation
-caxis([cmin_input cmax_input])
-
-%% color configuration : from blue to light blue to white untill to red
-
-red_top     = [1 0 0];
-white_middle= [1 1 1];
-blue_bottom = [0 0 1];
-
-%% color interpolation 
-
-color_num = 250;   
-color_input = [blue_bottom;  white_middle;  red_top];
-oldsteps = linspace(-1, 1, length(color_input));
-newsteps = linspace(-1, 1, color_num);  
-
-%% Category Discussion according to the cmin and cmax input
-
-%  the color data will be remaped to color range from -max(abs(cmin_input,abs(cmax_input)))
-%  to max(abs(cmin_input,abs(cmax_input))) , and then squeeze the color
-%  data in order to make suere the blue and red color selected corresponded
-%  to their math values
-
-%  for example :
-%  if b2r(-3,6) ,the color range is from light blue to deep red ,
-%  so that the color at -3 is light blue while the color at 3 is light red
-%  corresponded
-
-%% Category Discussion according to the cmin and cmax input
-% first : from negative to positive
-% then  : from positive to positive
-% last  : from negative to negative
-
-newmap_all = NaN(size(newsteps,2),3);
-if (cmin_input < 0)  &&  (cmax_input > 0) ;  
-    
-    
-    if abs(cmin_input) < cmax_input 
-         
-        % |--------|---------|--------------------|    
-      % -cmax      cmin       0                  cmax         [cmin,cmax]
-      %    squeeze(colormap(round((cmin+cmax)/2/cmax),size(colormap)))
- 
-       for j=1:3
-           newmap_all(:,j) = min(max(transpose(interp1(oldsteps, color_input(:,j), newsteps)), 0), 1);
-       end
-       start_point = round((cmin_input+cmax_input)/2/cmax_input*color_num);
-       newmap = squeeze(newmap_all(start_point:color_num,:));
-       
-    elseif abs(cmin_input) >= cmax_input
-        
-         % |------------------|------|--------------|    
-       %  cmin                0     cmax          -cmin         [cmin,cmax]
-       %    squeeze(colormap(round((cmin+cmax)/2/cmax),size(colormap)))       
-       
-       for j=1:3
-           newmap_all(:,j) = min(max(transpose(interp1(oldsteps, color_input(:,j), newsteps)), 0), 1);
-       end
-       end_point = round((cmax_input-cmin_input)/2/abs(cmin_input)*color_num);
-       newmap = squeeze(newmap_all(1:end_point,:));
-    end
-    
-       
-elseif cmin_input >= 0
-
-       if lims(1) < 0 
-           disp('caution:')
-           disp('there are still values smaller than 0, but cmin is larger than 0.')
-           disp('some area will be in red color while it should be in blue color')
-       end
-        % |-----------------|-------|-------------|    
-      % -cmax               0      cmin          cmax         [cmin,cmax]
-      %    squeeze(colormap(round((cmin+cmax)/2/cmax),size(colormap)))
- 
-       for j=1:3
-           newmap_all(:,j) = min(max(transpose(interp1(oldsteps, color_input(:,j), newsteps)), 0), 1);
-       end
-       start_point = round((cmin_input+cmax_input)/2/cmax_input*color_num);
-       newmap = squeeze(newmap_all(start_point:color_num,:));
-
-elseif cmax_input <= 0
-
-       if lims(2) > 0 
-           disp('caution:')
-           disp('there are still values larger than 0, but cmax is smaller than 0.')
-           disp('some area will be in blue color while it should be in red color')
-       end
-       
-         % |------------|------|--------------------|    
-       %  cmin         cmax    0                  -cmin         [cmin,cmax]
-       %    squeeze(colormap(round((cmin+cmax)/2/cmax),size(colormap)))       
-
-       for j=1:3
-           newmap_all(:,j) = min(max(transpose(interp1(oldsteps, color_input(:,j), newsteps)), 0), 1);
-       end
-       end_point = round((cmax_input-cmin_input)/2/abs(cmin_input)*color_num);
-       newmap = squeeze(newmap_all(1:end_point,:));
-end
- end
