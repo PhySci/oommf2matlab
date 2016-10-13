@@ -873,11 +873,20 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        if params.windowFunc
            repSize = size(FFTres);
            
-           if (strcmp(params.direction,'x'))
-               windVec = hanning(repSize(2),'periodic');
-               windVec = permute(windVec,[4 1 2 3]);
+           if (strcmp(params.direction,'x'));
+               repSize = size(FFTres);
+               windVecX = hanning(repSize(2),'periodic');
+               windVecXarr = permute(windVecX,[4 1 2 3]);
                repSize(2) = 1;
-               windArr = repmat(windVec,repSize);
+               windArr = repmat(windVecXarr,repSize);
+               FFTres = FFTres.*windArr;
+               windArr = [];
+               
+               repSize = size(FFTres);
+               windVecY = hanning(repSize(3),'periodic');
+               windVecYarr = permute(windVecY,[3 4 1 2]);
+               repSize(3) = 1;
+               windArr = repmat(windVecYarr ,repSize);
                FFTres = FFTres.*windArr;
 
            elseif (strcmp(params.direction,'y'))
@@ -1356,8 +1365,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        xlim(params.freqLimit); xlabel('Frequency (GHz)');
        %num2clip([freqScale(find(freqScale>=0)).' Amp(find(freqScale>=0))]);
        
-       set(gca,'FontName','Times','FontSize',16);
-       
+       set(gca,'FontSize',18,'FontName','Times','FontWeight','bold');
        % save figure
        obj.savePlotAs(params.saveAs,gcf);
    end
