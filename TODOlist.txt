@@ -3,3 +3,5 @@
 - have a look to function "mean"
 
 - cbfreeze in matlab doesnt work on v2015b need it different for colorbars in subfigures
+
+- @scanFolder doesn't work for 2D falt systems
