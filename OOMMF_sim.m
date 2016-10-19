@@ -1562,13 +1562,16 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            return
        end
        
+       
        % process chunk
-       if (params.chunk)
-           zStep = 8
+       if (length(arrSize)==3)  % 2D system
+           zStep = 1;
+           chunkAmount = 1;
+       elseif (params.chunk)
+           zStep = 1
            chunkAmount = arrSize(4)/zStep
        else     
            zStep = arrSize(4)
-           %zStep = 1 %for 1D sample
            chunkAmount = 1
        end
        
@@ -1607,13 +1610,17 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                if mod(arrSize(1),2)
                    FFTxFile.Yx(1:floor(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
                        tmp((ceil(0.5*arrSize(1))+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
-                   FFTxFile.Yx(ceil(0.5*arrSize(1)):arrSize(1),1:arrSize(2),1:arrSize(3),:) =...
+                   
+                   FFTxFile.Yx(ceil(0.5*arrSize(1)):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
                        tmp(1:ceil(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),:);
                else
-                   FFTxFile.Yx(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
-                       tmp((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
-                   FFTxFile.Yx((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
-                       tmp(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),:);
+                   k =  tmp((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
+                   FFTxFile.Yx(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) = k;
+                   
+                  
+                   d =  tmp(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),:);
+                   FFTxFile.Yx((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) = d;
+                       
                end
            end
            
