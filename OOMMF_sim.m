@@ -833,6 +833,11 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        MFile = matfile(fullfile(obj.folder,strcat('M',params.proj,'FFT.mat')));
        mSize = size(MFile,'Y');
        
+       % fix for 2D systems
+       if (numel(mSize) == 3)
+           mSize(4) = 1;
+       end     
+       
        % process input range parameters
        if (params.xRange == 0)
            params.xRange = [1 mSize(2)];
@@ -1523,8 +1528,8 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
           [MxStatic,MyStatic,MzStatic] = obj.getStatic(params.folder);
        end
        disp('Write');
-       % initialize input and output files
        
+       %% initialize input and output files
        if ~isempty(strfind(params.proj,'x'))
            MxFile = matfile(fullfile(folder,'Mx.mat'));
            FFTxFile = matfile(fullfile(folder,'MxFFT.mat'),'Writable',true);
@@ -1545,10 +1550,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            FFTinpFile = matfile(fullfile(folder,'MinpFFT.mat'),'Writable',true);
        end
        
-       
-
        disp('FFT');
-       
        if exist('MxFile','var')
            arrSize = size(MxFile,'M');
        elseif exist('MyFile','var')
@@ -1564,10 +1566,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        
        % process chunk
-       if (length(arrSize)==3)  % 2D system
-           zStep = 1;
-           chunkAmount = 1;
-       elseif (params.chunk)
+       if (params.chunk)
            zStep = 1
            chunkAmount = arrSize(4)/zStep
        else     
@@ -1579,7 +1578,35 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        if params.windFunc
            windVec = hanning(arrSize(1),'periodic');
            windArr = repmat(windVec,[1 arrSize(2:3) zStep]);
+       else
+           windArr = [];
        end
+       
+       
+       if (length(arrSize)==3)
+           if ~isempty(strfind(params.proj,'x'))
+               disp('Mx');
+               Mx = MxFile.M(1:arrSize(1),1:arrSize(2),1:arrSize(3));        
+               FFTxFile.Y = obj.calcFFT(Mx,MxStatic,windArr);  
+               clear Mx
+           end
+           
+           if ~isempty(strfind(params.proj,'y'))
+               disp('My');
+               My = MyFile.M(1:arrSize(1),1:arrSize(2),1:arrSize(3));
+               FFTyFile.Y = obj.calcFFT(My,MxStatic,windArr);
+               clear My
+           end
+           
+           if ~isempty(strfind(params.proj,'z'))
+               disp('Mz');
+               Mz = MzFile.M(1:arrSize(1),1:arrSize(2),1:arrSize(3));
+               FFTzFile.Y = obj.calcFFT(Mz,MzStatic,windArr);
+               clear Mz
+           end    
+       else
+           
+           
        
        for chunkInd = 1:chunkAmount
            zStart = (chunkInd-1)*zStep+1
@@ -1588,38 +1615,24 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            if ~isempty(strfind(params.proj,'x'))
                % process Mx projection
                disp('Mx');
-               Mx = MxFile.M(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
-               if (params.background)
-                   disp('Substract background');
-                   for timeInd = 1:arrSize(1)
-                       Mx(timeInd,:,:,:) = ...
-                           squeeze(Mx(timeInd,:,:,:)) - MxStatic(:,:,zStart:zEnd);
-                   end
-               end
-               
-               % calculate FFT
-               disp('FFT');
-               if params.windFunc
-                   tmp = fft(Mx.*windArr,[],1);
-               else
-                   tmp = fft(Mx,[],1);
-               end
+               Mx = MxFile.M(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);        
+               tmp = obj.calcFFT(obj,Mx,MxStatic(:,:,zStart:zEnd),windArr);  
                clear Mx
-                   
+               
+               % теперь игра с сохранением
                disp('Write');
                if mod(arrSize(1),2)
-                   FFTxFile.Yx(1:floor(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
+                   FFTxFile.Y(1:floor(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
                        tmp((ceil(0.5*arrSize(1))+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
                    
-                   FFTxFile.Yx(ceil(0.5*arrSize(1)):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
+                   FFTxFile.Y(ceil(0.5*arrSize(1)):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
                        tmp(1:ceil(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),:);
                else
-                   k =  tmp((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
-                   FFTxFile.Yx(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) = k;
+                   FFTxFile.Y(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) = ...
+                       tmp((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
                    
-                  
-                   d =  tmp(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),:);
-                   FFTxFile.Yx((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) = d;
+                   FFTxFile.Y((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) = ...
+                       tmp(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),:);
                        
                end
            end
@@ -1629,35 +1642,20 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                disp('My');
                
                My = MyFile.M(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
-               if (params.background)
-                   disp('Substract background');
-                   for timeInd = 1:arrSize(1)
-                       My(timeInd,:,:,:) = ...
-                           squeeze(My(timeInd,:,:,:)) - MyStatic(:,:,zStart:zEnd);
-                   end
-               end
-               
-
-               % calculate FFT
-               disp('FFT');
-               if params.windFunc
-                   tmp = fft(My.*windArr,[],1);
-               else
-                   tmp = fft(My,[],1);
-               end
+               tmp = obj.calcFFT(obj,My,MyStatic(:,:,zStart:zEnd),windArr);
                clear My
                
                % write results of calculation to file
                disp('Write');
                if mod(arrSize(1),2)
-                   FFTyFile.Yy(1:floor(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
+                   FFTyFile.Y(1:floor(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
                        tmp((ceil(0.5*arrSize(1))+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
-                   FFTyFile.Yy(ceil(0.5*arrSize(1)):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
+                   FFTyFile.Y(ceil(0.5*arrSize(1)):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
                        tmp(1:ceil(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),:);
                else
-                   FFTyFile.Yy(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
+                   FFTyFile.Y(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
                        tmp((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
-                   FFTyFile.Yy((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
+                   FFTyFile.Y((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
                        tmp(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),:);
                end
                
@@ -1666,28 +1664,11 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            if ~isempty(strfind(params.proj,'z'))
                % process Mz projection
                disp('Mz');
-
-
                Mz = MzFile.M(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
-               if (params.background)
-                   disp('Substract background');
-                   for timeInd = 1:arrSize(1)
-                       Mz(timeInd,:,:,:) = ...
-                         squeeze(Mz(timeInd,:,:,:)) - MzStatic(:,:,zStart:zEnd);
-                   end
-               end
-
-               % calculate FFT
-               disp('FFT');
-               if params.windFunc
-                   tmp = fft(Mz.*windArr,[],1);
-               else
-                   tmp = fft(Mz,[],1);
-               end
+               tmp = obj.calcFFT(obj,Mz,MxStatic(:,:,zStart:zEnd),windArr);  
                clear Mz
                
                % write results of calculation to file
-
                disp('Write');
                if mod(arrSize(1),2)
                    FFTzFile.Y(1:floor(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
@@ -1706,20 +1687,11 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                % process Minp projection
                disp('Minp');
 
-
                Minp = MinpFile.M(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
-
-               % calculate FFT
-               disp('FFT');
-               if params.windFunc
-                   tmp = fft(Minp.*windArr,[],1);
-               else
-                   tmp = fft(Minp,[],1);
-               end
+               tmp = obj.calcFFT(obj,Minp,[],windArr);
                clear Mz
                
                % write results of calculation to file
-
                disp('Write');
                if mod(arrSize(1),2)
                    FFTinpFile.Y(1:floor(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
@@ -1733,6 +1705,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                        tmp(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),:);
                end
            end
+       end
        end
      
    end
@@ -2444,7 +2417,31 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                disp('Unknown platform. Please, fix the bag');
        end    
                
-   end        
+   end 
+   
+   % calculate FFT along first dimension of the input array
+   % parameters:
+   %     arr - input array
+   %     background - static configuration 
+   %     wind - array of window function
+   function res = calcFFT(obj,input,background,window)
+       % subtract background
+       if ~isempty(background)
+           disp('Substract background');
+           for timeInd = 1:size(input,1)
+               input(timeInd,:,:,:) = ...
+                   squeeze(input(timeInd,:,:,:)) - background;
+           end
+       end
+       
+       % calculate FFT
+       disp('FFT');
+       if ~isempty(window)
+           res = fft(input.*window,[],1);
+       else
+           res = fft(input,[],1);
+       end
+   end    
    
  % END OF PRIVATE METHODS
  end
