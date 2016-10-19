@@ -179,9 +179,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      
     % read first test value
     fTestVal = fread(fid, 1, format, 0, 'ieee-le');
-    if (fTestVal == testVal)
-      disp('Correct format')
-    else
+    if (fTestVal ~= testVal)
       disp('Wrong format');
       return;
     end   
@@ -642,20 +640,17 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      % evaluate required memory and compare with available space
       % memory required for one time frame 
      oneTimeFrameMemory = 3*8*obj.xnodes*obj.ynodes*obj.znodes*obj.dim;
-
      availableSpace = obj.getMemory();
     
-
-     heapSize = min(...
-         ceil(availableSpace/oneTimeFrameMemory),...
-         size(fList,1))
+     heapSize = min(ceil(availableSpace/oneTimeFrameMemory),size(fList,1))
           
      % create files and variables   
      XFile = matfile(fullfile(savePath,strcat(params.value,'x.mat')),'Writable',true);
      YFile = matfile(fullfile(savePath,strcat(params.value,'y.mat')),'Writable',true);
      ZFile = matfile(fullfile(savePath,strcat(params.value,'z.mat')),'Writable',true);
-          
-     % create heap array 
+      
+     
+     % create heap array
      XHeap = zeros(heapSize,obj.xnodes,obj.ynodes,obj.znodes);
      YHeap = zeros(heapSize,obj.xnodes,obj.ynodes,obj.znodes);
      ZHeap = zeros(heapSize,obj.xnodes,obj.ynodes,obj.znodes);
@@ -664,7 +659,6 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      fileAmount = size(fList,1);
      
      for fInd=1:fileAmount
-         disp (fInd)
          file = fList(fInd);
          [~, fName, ~] = fileparts(file.name);
          obj.fName = strcat(path,filesep,fName);
@@ -677,10 +671,25 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
              heapEnd = fInd;
              switch (params.value)
                  case 'M'    
-                    disp('Write to file');
-                    XFile.M(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = cast(XHeap(1:indHeap,1:end,1:end,1:end),'single');
-                    YFile.M(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = cast(YHeap(1:indHeap,1:end,1:end,1:end),'single'); 
-                    ZFile.M(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = cast(ZHeap(1:indHeap,1:end,1:end,1:end),'single');
+                    disp(['Write to file. Last file is number ', num2str(fInd)]);
+                    
+                    if (obj.xnodes ==1)  % purpose of this if-else structure is correst writing of 2D system with one singleton dimension
+                        XFile.M(heapStart:heapEnd,1,1:obj.ynodes,1:obj.znodes) = cast(XHeap(1:indHeap,1:end,1:end,1:end),'single');
+                        YFile.M(heapStart:heapEnd,1,1:obj.ynodes,1:obj.znodes) = cast(YHeap(1:indHeap,1:end,1:end,1:end),'single'); 
+                        ZFile.M(heapStart:heapEnd,1,1:obj.ynodes,1:obj.znodes) = cast(ZHeap(1:indHeap,1:end,1:end,1:end),'single');    
+                    elseif (obj.ynodes ==1)
+                        XFile.M(heapStart:heapEnd,1:obj.xnodes,1,1:obj.znodes) = cast(XHeap(1:indHeap,1:end,1:end,1:end),'single');
+                        YFile.M(heapStart:heapEnd,1:obj.xnodes,1,1:obj.znodes) = cast(YHeap(1:indHeap,1:end,1:end,1:end),'single'); 
+                        ZFile.M(heapStart:heapEnd,1:obj.xnodes,1,1:obj.znodes) = cast(ZHeap(1:indHeap,1:end,1:end,1:end),'single');
+                    elseif (obj.znodes ==1)
+                        XFile.M(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes) = cast(XHeap(1:indHeap,1:end,1:end,1:end),'single');
+                        YFile.M(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes) = cast(YHeap(1:indHeap,1:end,1:end,1:end),'single'); 
+                        ZFile.M(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes) = cast(ZHeap(1:indHeap,1:end,1:end,1:end),'single');
+                    else
+                        XFile.M(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = cast(XHeap(1:indHeap,1:end,1:end,1:end),'single');
+                        YFile.M(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = cast(YHeap(1:indHeap,1:end,1:end,1:end),'single'); 
+                        ZFile.M(heapStart:heapEnd,1:obj.xnodes,1:obj.ynodes,1:obj.znodes) = cast(ZHeap(1:indHeap,1:end,1:end,1:end),'single');
+                    end       
                     indHeap = 1;
                  case 'H'    
                     disp('Write to file');
