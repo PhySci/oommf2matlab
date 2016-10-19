@@ -230,6 +230,8 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
        p = inputParser;
        p.addParamValue('saveAs','',@isstr);
        p.addParamValue('addExp',false,@islogical);
+       p.addParamValue('freqExp',0,@isnumeric);
+       
        p.addParamValue('tMax',0,@isnumeric);
        p.parse(varargin{:});
        params = p.Results;
@@ -240,7 +242,8 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
        
        if params.addExp
            A = 1;
-           h = A*exp(-10./(6.60e9*obj.time));
+           
+           h = A*exp(-10./(params.freqExp*obj.time));
            [hAx,H1,H2] = plotyy(obj.time/1e-9,obj.Mz,obj.time/1e-9,h);
            ylabel(hAx(1),'M_z (arb. units)','FontSize',18,'FontName','Times','FontWeight','bold');
            ylabel(hAx(2),'A (Oe)','FontSize',18,'FontName','Times','FontWeight','bold');
