@@ -2176,64 +2176,97 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        p.addParamValue('saveAs','',@isstr);
        p.addParamValue('saveMatAs','',@isstr);
        p.addParamValue('baseline',true,@islogical);
-        
+       p.addParamValue('complex',false,@islogical);
+       
        % experimental parameters
        spotSize = 400e-9; % nm
+       halfT = 4; % half period of oscillations (in timeFrames)
        
        p.parse(varargin{:});      
        params = p.Results;      
        obj.getSimParams();
        
        mFile = matfile('Mz');
-       M = squeeze(mFile.M(params.timeFrame,:,params.ySlice(1):params.ySlice(2),params.zSlice)-...
+       M1 = squeeze(mFile.M(params.timeFrame,:,params.ySlice(1):params.ySlice(2),params.zSlice)-...
+                     mFile.M(1,:,params.ySlice(1):params.ySlice(2),params.zSlice));
+                 
+       M2 = squeeze(mFile.M(params.timeFrame-halfT,:,params.ySlice(1):params.ySlice(2),params.zSlice)-...
                      mFile.M(1,:,params.ySlice(1):params.ySlice(2),params.zSlice));
        
        % subtract baseline
        if params.baseline
-           M = M - mean(M(:));
+           M1 = M1 - mean(M1(:));
+           M2 = M2 - mean(M2(:));
        end    
        
        % Gauss window along OY axis
        gaussWidth = floor(spotSize/obj.ystepsize);
        w1= window(@gausswin,gaussWidth);
        w1 = w1/sum(w1); % normalize window function
-       for xInd = 1:size(M,1)
-           M(xInd,:) = conv(M(xInd,:),w1,'same');
+       for xInd = 1:size(M1,1)
+           M1(xInd,:) = conv(M1(xInd,:),w1,'same');
+           M2(xInd,:) = conv(M2(xInd,:),w1,'same');
        end    
-       M = mean(M,2);
+       M1 = mean(M1,2);
+       M2 = mean(M2,2);
        
        % Gauss window along OX axis
        gaussWidth = floor(spotSize/obj.xstepsize);
        w2= window(@gausswin,gaussWidth);
        w2 = w2/sum(w2);  % normalize window function
-       M = conv(M,w2,'same');
-       
+       M1 = conv(M1,w2,'same');
+       M2 = conv(M2,w2,'same');
+              
        % Gauss window along OX axis
        gaussWidth = floor(spotSize/obj.xstepsize);
        w2= window(@gausswin,gaussWidth);
        w2 = w2/sum(w2);
-       M = conv(M,w2,'same');
+       M1 = conv(M1,w2,'same');
+       M2 = conv(M2,w2,'same');
        
        xScale = linspace(obj.xmin,obj.xmax,obj.xnodes)/1e-6;     
        kScale = obj.getWaveScale(obj.xstepsize,obj.xnodes)*1e-6;
        
-       % amp0 = abs(fftshift(fft(M0(:))));
-       amp = abs(fftshift(fft(M(:))));
-       
+       amp1 = abs(fftshift(fft(M1(:))));
+       amp2 = abs(fftshift(fft(M2(:))));
        % plot results
-       subplot(211)
-           plot(xScale,M);
-           xlabel('x (\mum)','FontSize',14,'FontName','Times','FontWeight','bold');
-           ylabel('M_z (A/m)','FontName','Times','FontWeight','bold')
-           xlim([min(xScale) max(xScale)]);
-           
-       subplot(212)
-           plot(2*pi*kScale,amp);
-           xlim([0 5]);
-           xlabel('k (rad/\mum)','FontSize',14,'FontName','Times','FontWeight','bold')
-           ylabel('Spectral density (arb. units)','FontSize',14,'FontName','Times','FontWeight','bold')
-           savefig(gcf,'slice.fig')
+       
+       kMax = 2;
+       if params.complex
+           MComplex = M1 + j*M2;
+           ampComplex = abs(fftshift(fft(MComplex(:))));
+           subplot(3, 1, 1);
+               plot(xScale,M1,'-r',xScale,M2,'-g','LineWidth',1);
+               xlabel('x (\mum)','FontSize',14,'FontName','Times','FontWeight','bold');
+               ylabel('M_z (A/m)','FontName','Times','FontWeight','bold')
+               xlim([min(xScale) max(xScale)]);
+               
+               minM = min(min(M1), min(M2));
+               maxM = max(max(M1), max(M2));
+               ylim([minM, maxM]);               
+               legend('M(t)','M(t-T/2)');
+               
 
+           subplot(3, 1, 2:3);
+               plot(2*pi*kScale,amp1,'-r',2*pi*kScale,amp2,'-g',2*pi*kScale,ampComplex,'-b','LineWidth',1.5);
+               xlim([-kMax kMax]);
+               xlabel('k (rad/\mum)','FontSize',14,'FontName','Times','FontWeight','bold')
+               ylabel('FFT intensity (arb. u.)','FontSize',14,'FontName','Times','FontWeight','bold')
+               legend('M(t)','M(t-T/2)','M(t)+j*M(t-T/2)','location','best');
+       else
+           subplot(2, 1, 1);
+               plot(xScale,[M1,M2]);
+               xlabel('x (\mum)','FontSize',14,'FontName','Times','FontWeight','bold');
+               ylabel('M_z (A/m)','FontName','Times','FontWeight','bold')
+               xlim([min(xScale) max(xScale)]);
+           
+           subplot(2, 1, 2);
+               plot(2*pi*kScale,[amp1,amp2]);
+               xlim([0 kMax]);
+               xlabel('k (rad/\mum)','FontSize',14,'FontName','Times','FontWeight','bold')
+               ylabel('FFT intensity (arb. u.)','FontSize',14,'FontName','Times','FontWeight','bold')
+       end
+               
        obj.savePlotAs(params.saveAs,gcf);
        print(gcf,'-depsc2','slice.eps');
        
@@ -2242,6 +2275,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            fName = strcat(params.saveMatAs,'.mat');
            save(fName,'xScale','M','kScale','amp'); 
        end
+       
    end    
        
    
