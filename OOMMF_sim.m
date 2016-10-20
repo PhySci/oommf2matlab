@@ -2231,7 +2231,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        amp2 = abs(fftshift(fft(M2(:))));
        % plot results
        
-       kMax = 2;
+       kMax = 0.4;
        if params.complex
            MComplex = M1 + j*M2;
            ampComplex = abs(fftshift(fft(MComplex(:))));
@@ -2244,15 +2244,15 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                minM = min(min(M1), min(M2));
                maxM = max(max(M1), max(M2));
                ylim([minM, maxM]);               
-               legend('M(t)','M(t-T/2)');
+               legend('M(t)','M(t-T/2)','location','South');
                
 
            subplot(3, 1, 2:3);
-               plot(2*pi*kScale,amp1,'-r',2*pi*kScale,amp2,'-g',2*pi*kScale,ampComplex,'-b','LineWidth',1.5);
+               plot(kScale,amp1,'-r',kScale,amp2,'-g',kScale,ampComplex,'-b','LineWidth',1.5);
                xlim([-kMax kMax]);
-               xlabel('k (rad/\mum)','FontSize',14,'FontName','Times','FontWeight','bold')
+               xlabel('k (\mum ^-^1)','FontSize',14,'FontName','Times','FontWeight','bold')
                ylabel('FFT intensity (arb. u.)','FontSize',14,'FontName','Times','FontWeight','bold')
-               legend('M(t)','M(t-T/2)','M(t)+j*M(t-T/2)','location','best');
+               legend('M(t)','M(t-T/2)','M(t)+j*M(t-T/2)');
        else
            subplot(2, 1, 1);
                plot(xScale,[M1,M2]);
@@ -2268,7 +2268,6 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        end
                
        obj.savePlotAs(params.saveAs,gcf);
-       print(gcf,'-depsc2','slice.eps');
        
        % save data to mat file
        if (~strcmp(params.saveMatAs,''))
@@ -2428,7 +2427,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        if (~strcmp(params.fName,''))
            savefig(params.handle,strcat(params.fName,params.suffix,'.fig'));
-           print(params.handle,'-dpng',strcat(params.fName,params.suffix,'.png'));
+           print(params.handle,'-dpng','-r600',strcat(params.fName,params.suffix,'.png'));
        end
    end 
    
