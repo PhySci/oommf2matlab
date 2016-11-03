@@ -1566,7 +1566,10 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        
        % process chunk
-       if (params.chunk)
+       if (numel(arrSize)==3)
+           zStep = 1;
+           chunkAmount = 1;
+       elseif (params.chunk)
            zStep = 1
            chunkAmount = arrSize(4)/zStep
        else     
@@ -1587,26 +1590,24 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            if ~isempty(strfind(params.proj,'x'))
                disp('Mx');
                Mx = MxFile.M(1:arrSize(1),1:arrSize(2),1:arrSize(3));        
-               FFTxFile.Y = obj.calcFFT(Mx,MxStatic,windArr);  
+               FFTxFile.Y = fftshift(obj.calcFFT(Mx,MxStatic,windArr));  
                clear Mx
            end
            
            if ~isempty(strfind(params.proj,'y'))
                disp('My');
                My = MyFile.M(1:arrSize(1),1:arrSize(2),1:arrSize(3));
-               FFTyFile.Y = obj.calcFFT(My,MxStatic,windArr);
+               FFTyFile.Y = fftshift(obj.calcFFT(My,MxStatic,windArr));
                clear My
            end
            
            if ~isempty(strfind(params.proj,'z'))
                disp('Mz');
                Mz = MzFile.M(1:arrSize(1),1:arrSize(2),1:arrSize(3));
-               FFTzFile.Y = obj.calcFFT(Mz,MzStatic,windArr);
+               FFTzFile.Y = fftshift(obj.calcFFT(Mz,MzStatic,windArr));
                clear Mz
            end    
        else
-           
-           
        
        for chunkInd = 1:chunkAmount
            zStart = (chunkInd-1)*zStep+1
@@ -1642,7 +1643,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                disp('My');
                
                My = MyFile.M(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
-               tmp = obj.calcFFT(obj,My,MyStatic(:,:,zStart:zEnd),windArr);
+               tmp = obj.calcFFT(My,MyStatic(:,:,zStart:zEnd),windArr);
                clear My
                
                % write results of calculation to file
@@ -1665,7 +1666,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                % process Mz projection
                disp('Mz');
                Mz = MzFile.M(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
-               tmp = obj.calcFFT(obj,Mz,MxStatic(:,:,zStart:zEnd),windArr);  
+               tmp = obj.calcFFT(Mz,MxStatic(:,:,zStart:zEnd),windArr);  
                clear Mz
                
                % write results of calculation to file
@@ -2119,9 +2120,12 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
    end
    
-   %% Plot surface coordinate-time
+   %% Plot surface of magnetizaion amplitude in coordinate-time axes
    % Useful for visualization of propagation of spin waves
-   % startTime - first time point to display (ns)
+   % Params:
+   %     zSlice - number of XY plane for which we look on
+   %     
+   %     startTime - first time point to display (ns)
    function plotWaveSurf(obj,varargin)
        % read input patameters
        

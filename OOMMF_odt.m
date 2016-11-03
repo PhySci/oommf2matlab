@@ -143,7 +143,7 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
      if strcmp(params.scale,'norm')
        plot(obj.freqScale/1e9,Y);
      else
-       semilogy(obj.freqScale/1e9,Y,obj.freqScale/1e9,Y2);  
+       semilogy(obj.freqScale/1e9,Y);  
      end    
      xlabel('Frequency (GHz)','FontSize',18,'FontName','Times','FontWeight','bold'); 
      xlim([params.freqLim(1) params.freqLim(2)]);
@@ -243,7 +243,7 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
        if params.addExp
            A = 1;
            
-           h = A*exp(-10./(params.freqExp*obj.time));
+           h = A*exp(-20./(params.freqExp*obj.time));
            [hAx,H1,H2] = plotyy(obj.time/1e-9,obj.Mz,obj.time/1e-9,h);
            ylabel(hAx(1),'M_z (arb. units)','FontSize',18,'FontName','Times','FontWeight','bold');
            ylabel(hAx(2),'A (Oe)','FontSize',18,'FontName','Times','FontWeight','bold');
@@ -257,7 +257,7 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
            xlim(hAx(2),[0, params.tMax]);
            % set Y limits
            ylim(hAx(1),[1.1*min(obj.Mz), 1.1*max(obj.Mz)]);
-           ylim(hAx(2),[-1.1*A, 1.1*A]);
+           ylim(hAx(2),[-1.1*max(h), 1.1*max(h)]);
            
            set(H2,'LineWidth',3)
        else
