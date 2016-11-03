@@ -1570,7 +1570,10 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        
        % process chunk
-       if (params.chunk) 
+       if (numel(arrSize)==3)
+           zStep = 1;
+           chunkAmount = 1;
+       elseif (params.chunk)
            zStep = 1
            chunkAmount = arrSize(4)/zStep
        else     
@@ -1591,26 +1594,24 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            if ~isempty(strfind(params.proj,'x'))
                disp('Mx');
                Mx = MxFile.M(1:arrSize(1),1:arrSize(2),1:arrSize(3));        
-               FFTxFile.Y = obj.calcFFT(Mx,MxStatic,windArr);  
+               FFTxFile.Y = fftshift(obj.calcFFT(Mx,MxStatic,windArr));  
                clear Mx
            end
            
            if ~isempty(strfind(params.proj,'y'))
                disp('My');
                My = MyFile.M(1:arrSize(1),1:arrSize(2),1:arrSize(3));
-               FFTyFile.Y = obj.calcFFT(My,MxStatic,windArr);
+               FFTyFile.Y = fftshift(obj.calcFFT(My,MxStatic,windArr));
                clear My
            end
            
            if ~isempty(strfind(params.proj,'z'))
                disp('Mz');
                Mz = MzFile.M(1:arrSize(1),1:arrSize(2),1:arrSize(3));
-               FFTzFile.Y = obj.calcFFT(Mz,MzStatic,windArr);
+               FFTzFile.Y = fftshift(obj.calcFFT(Mz,MzStatic,windArr));
                clear Mz
            end    
        else
-           
-           
        
        for chunkInd = 1:chunkAmount
            zStart = (chunkInd-1)*zStep+1
@@ -1646,7 +1647,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                disp('My');
                
                My = MyFile.M(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
-               tmp = obj.calcFFT(obj,My,MyStatic(:,:,zStart:zEnd),windArr);
+               tmp = obj.calcFFT(My,MyStatic(:,:,zStart:zEnd),windArr);
                clear My
                
                % write results of calculation to file
@@ -1669,7 +1670,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                % process Mz projection
                disp('Mz');
                Mz = MzFile.M(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
-               tmp = obj.calcFFT(obj,Mz,MxStatic(:,:,zStart:zEnd),windArr);  
+               tmp = obj.calcFFT(Mz,MxStatic(:,:,zStart:zEnd),windArr);  
                clear Mz
                
                % write results of calculation to file
@@ -2123,9 +2124,12 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
    end
    
-   %% Plot surface coordinate-time
+   %% Plot surface of magnetizaion amplitude in coordinate-time axes
    % Useful for visualization of propagation of spin waves
-   % startTime - first time point to display (ns)
+   % Params:
+   %     zSlice - number of XY plane for which we look on
+   %     
+   %     startTime - first time point to display (ns)
    function plotWaveSurf(obj,varargin)
        % read input patameters
        
@@ -2180,72 +2184,105 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        p.addParamValue('saveAs','',@isstr);
        p.addParamValue('saveMatAs','',@isstr);
        p.addParamValue('baseline',true,@islogical);
-        
+       p.addParamValue('complex',false,@islogical);
+       
        % experimental parameters
        spotSize = 400e-9; % nm
+       halfT = 4; % half period of oscillations (in timeFrames)
        
        p.parse(varargin{:});      
        params = p.Results;      
        obj.getSimParams();
        
        mFile = matfile('Mz');
-       M = squeeze(mFile.M(params.timeFrame,:,params.ySlice(1):params.ySlice(2),params.zSlice)-...
+       M1 = squeeze(mFile.M(params.timeFrame,:,params.ySlice(1):params.ySlice(2),params.zSlice)-...
+                     mFile.M(1,:,params.ySlice(1):params.ySlice(2),params.zSlice));
+                 
+       M2 = squeeze(mFile.M(params.timeFrame-halfT,:,params.ySlice(1):params.ySlice(2),params.zSlice)-...
                      mFile.M(1,:,params.ySlice(1):params.ySlice(2),params.zSlice));
        
        % subtract baseline
        if params.baseline
-           M = M - mean(M(:));
+           M1 = M1 - mean(M1(:));
+           M2 = M2 - mean(M2(:));
        end    
        
        % Gauss window along OY axis
        gaussWidth = floor(spotSize/obj.ystepsize);
        w1= window(@gausswin,gaussWidth);
        w1 = w1/sum(w1); % normalize window function
-       for xInd = 1:size(M,1)
-           M(xInd,:) = conv(M(xInd,:),w1,'same');
+       for xInd = 1:size(M1,1)
+           M1(xInd,:) = conv(M1(xInd,:),w1,'same');
+           M2(xInd,:) = conv(M2(xInd,:),w1,'same');
        end    
-       M = mean(M,2);
+       M1 = mean(M1,2);
+       M2 = mean(M2,2);
        
        % Gauss window along OX axis
        gaussWidth = floor(spotSize/obj.xstepsize);
        w2= window(@gausswin,gaussWidth);
        w2 = w2/sum(w2);  % normalize window function
-       M = conv(M,w2,'same');
-       
+       M1 = conv(M1,w2,'same');
+       M2 = conv(M2,w2,'same');
+              
        % Gauss window along OX axis
        gaussWidth = floor(spotSize/obj.xstepsize);
        w2= window(@gausswin,gaussWidth);
        w2 = w2/sum(w2);
-       M = conv(M,w2,'same');
+       M1 = conv(M1,w2,'same');
+       M2 = conv(M2,w2,'same');
        
        xScale = linspace(obj.xmin,obj.xmax,obj.xnodes)/1e-6;     
        kScale = obj.getWaveScale(obj.xstepsize,obj.xnodes)*1e-6;
        
-       % amp0 = abs(fftshift(fft(M0(:))));
-       amp = abs(fftshift(fft(M(:))));
-       
+       amp1 = abs(fftshift(fft(M1(:))));
+       amp2 = abs(fftshift(fft(M2(:))));
        % plot results
-       subplot(211)
-           plot(xScale,M);
-           xlabel('x (\mum)','FontSize',14,'FontName','Times','FontWeight','bold');
-           ylabel('M_z (A/m)','FontName','Times','FontWeight','bold')
-           xlim([min(xScale) max(xScale)]);
-           
-       subplot(212)
-           plot(2*pi*kScale,amp);
-           xlim([0 5]);
-           xlabel('k (rad/\mum)','FontSize',14,'FontName','Times','FontWeight','bold')
-           ylabel('Spectral density (arb. units)','FontSize',14,'FontName','Times','FontWeight','bold')
-           savefig(gcf,'slice.fig')
+       
+       kMax = 0.4;
+       if params.complex
+           MComplex = M1 + j*M2;
+           ampComplex = abs(fftshift(fft(MComplex(:))));
+           subplot(3, 1, 1);
+               plot(xScale,M1,'-r',xScale,M2,'-g','LineWidth',1);
+               xlabel('x (\mum)','FontSize',14,'FontName','Times','FontWeight','bold');
+               ylabel('M_z (A/m)','FontName','Times','FontWeight','bold')
+               xlim([min(xScale) max(xScale)]);
+               
+               minM = min(min(M1), min(M2));
+               maxM = max(max(M1), max(M2));
+               ylim([minM, maxM]);               
+               legend('M(t)','M(t-T/2)','location','South');
+               
 
+           subplot(3, 1, 2:3);
+               plot(kScale,amp1,'-r',kScale,amp2,'-g',kScale,ampComplex,'-b','LineWidth',1.5);
+               xlim([-kMax kMax]);
+               xlabel('k (\mum ^-^1)','FontSize',14,'FontName','Times','FontWeight','bold')
+               ylabel('FFT intensity (arb. u.)','FontSize',14,'FontName','Times','FontWeight','bold')
+               legend('M(t)','M(t-T/2)','M(t)+j*M(t-T/2)');
+       else
+           subplot(2, 1, 1);
+               plot(xScale,[M1,M2]);
+               xlabel('x (\mum)','FontSize',14,'FontName','Times','FontWeight','bold');
+               ylabel('M_z (A/m)','FontName','Times','FontWeight','bold')
+               xlim([min(xScale) max(xScale)]);
+           
+           subplot(2, 1, 2);
+               plot(2*pi*kScale,[amp1,amp2]);
+               xlim([0 kMax]);
+               xlabel('k (rad/\mum)','FontSize',14,'FontName','Times','FontWeight','bold')
+               ylabel('FFT intensity (arb. u.)','FontSize',14,'FontName','Times','FontWeight','bold')
+       end
+               
        obj.savePlotAs(params.saveAs,gcf);
-       print(gcf,'-depsc2','slice.eps');
        
        % save data to mat file
        if (~strcmp(params.saveMatAs,''))
            fName = strcat(params.saveMatAs,'.mat');
            save(fName,'xScale','M','kScale','amp'); 
        end
+       
    end    
        
    
@@ -2398,7 +2435,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        if (~strcmp(params.fName,''))
            savefig(params.handle,strcat(params.fName,params.suffix,'.fig'));
-           print(params.handle,'-dpng',strcat(params.fName,params.suffix,'.png'));
+           print(params.handle,'-dpng','-r600',strcat(params.fName,params.suffix,'.png'));
        end
    end 
    
