@@ -889,6 +889,8 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            
            if (strcmp(params.direction,'x'));
                repSize = size(FFTres);
+               
+               % calculate window function
                windVecX = hanning(repSize(2),'periodic');
                windVecXarr = permute(windVecX,[4 1 2 3]);
                repSize(2) = 1;
@@ -913,6 +915,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            
        end    
        
+       % calculate FFT and wave vector scale
        if (strcmp(params.direction,'x'))           
            Y(:,:,:,:) = fft(FFTres,[],2);
            clearvars FFTres;
@@ -925,7 +928,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            Y(:,:,:,:) = fft(FFTres,[],3);
            clearvars FFTres;
            Amp = mean(mean(abs(Y),4),2);
-           Amp = fftshift(abs(Amp),2);
+           Amp = fftshift(abs(Amp),3);
            clearvars Y;
            waveVectorScale = 2*pi*obj.getWaveScale(obj.ystepsize/1e-6,mSize(3));
            directionLabel = 'y';
