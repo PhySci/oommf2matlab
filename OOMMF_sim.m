@@ -1564,9 +1564,13 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            return
        end
        
+       if numel(arrSize) ==3
+           arrSize(4) = 1;
+       end    
+       
        
        % process chunk
-       if (params.chunk)
+       if (params.chunk) 
            zStep = 1
            chunkAmount = arrSize(4)/zStep
        else     
@@ -1583,7 +1587,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        end
        
        
-       if (length(arrSize)==3)
+       if (arrSize(4)==1)
            if ~isempty(strfind(params.proj,'x'))
                disp('Mx');
                Mx = MxFile.M(1:arrSize(1),1:arrSize(2),1:arrSize(3));        
@@ -1619,7 +1623,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                tmp = obj.calcFFT(obj,Mx,MxStatic(:,:,zStart:zEnd),windArr);  
                clear Mx
                
-               % теперь игра с сохранением
+               % пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
                disp('Write');
                if mod(arrSize(1),2)
                    FFTxFile.Y(1:floor(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
