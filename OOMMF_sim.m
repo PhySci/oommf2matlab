@@ -1029,26 +1029,44 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        p.addParamValue('scale','log', @(x) any(strcmp(x,{'norm','log'})));
        p.addParamValue('saveAs','',@isstr);
        p.addParamValue('rotate',false,@islogical);
+       p.addParamValue('proj','z',@(x)any(strcmp(x,obj.availableProjs)));
        
        p.parse(varargin{:});
        params = p.Results;
+       params.proj = lower(params.proj);
               
        % load parameters
        obj.getSimParams;
        
        % assign file of FFT of Mz
+       % select projections
+       
        MzFFTFile = matfile(fullfile(obj.folder,'MzFFT.mat'));
-       MzFFTSize = size(MzFFTFile,'Y');
+       switch params.proj
+           case 'x'
+               FFTFile = matfile(fullfile(obj.folder,'MxFFT.mat'));
+           case 'y'
+               FFTFile = matfile(fullfile(obj.folder,'MyFFT.mat'));
+           case 'z'
+               FFTFile = matfile(fullfile(obj.folder,'MzFFT.mat'));
+           case 'inp'
+               FFTFile = matfile(fullfile(obj.folder,'MinpFFT.mat'));
+           otherwise
+               disp('Unknown projection');
+               return
+       end        
+               
+       arrSize = size(FFTFile,'Y');
        
        % process range parameters
        if (params.xRange  == 0)
            params.xRange(1) = 1;
-           params.xRange(2) = MzFFTSize(2);
+           params.xRange(2) = arrSize(2);
        end    
        
        if (params.yRange  == 0)
            params.yRange(1) = 1;
-           params.yRange(2) = MzFFTSize(3);
+           params.yRange(2) = arrSize(3);
        end    
               
        % calculate scales
@@ -1058,7 +1076,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        yScale=linspace(obj.ymin,obj.ymax,obj.ynodes)/1e-6;
        yScale = yScale(params.yRange(1):params.yRange(2));  
        
-       freqScale = obj.getWaveScale(obj.dt,MzFFTSize(1))/1e9;
+       freqScale = obj.getWaveScale(obj.dt,arrSize(1))/1e9;
        shiftFreqScale = ifftshift(freqScale);
        [~,freqInd] = min(abs(shiftFreqScale-params.freq));
        
@@ -1157,6 +1175,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        p.addParamValue('proj','z',@(x)any(strcmp(x,obj.availableProjs)));
        
        p.addParamValue('rotate',false,@islogical);
+       p.addParamValue('gaussWin',0,@isnumeric);
             
        p.parse(varargin{:});
        params = p.Results;
@@ -1209,7 +1228,6 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                    params.xRange(1):params.xRange(2),...
                    params.ySlice,...
                    params.zRange(1):params.zRange(2)));
-               
            case 'z'
                fftSlice = squeeze(FFTFile.Y(freqInd,...
                    params.xRange(1):params.xRange(2),...
@@ -1219,6 +1237,14 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                disp('Unknown projection');
                return
        end
+       
+       % apply Gauss window function
+       if params.gaussWin >0
+           [X,Y] = meshgrid(-params.gaussWin:1:params.gaussWin,-params.gaussWin:1:params.gaussWin);
+           R = sqrt(X.^2+Y.^2);
+           G = pdf('norm',R,0,0.5*params.gaussWin);
+           fftSlice = conv2(fftSlice,G,'same');
+       end    
        
        if (size(fftSlice,3)>1)
            Amp = squeeze(mean(abs(fftSlice),2));
@@ -1263,8 +1289,9 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
           % title(['Spectral density of FFT, \nu = ' num2str(params.freq) ' GHz'],...
           %     'FontSize',20,'FontName','Times');
            axis xy; 
-           xlabel(xScaleName); ylabel(yScaleName); 
-           set(gca,'FontSize',18,'FontWeight','bold','FontName','Times');
+           xlabel(xScaleName,'FontSize',18,'FontWeight','bold','FontName','Times');
+           ylabel(yScaleName,'FontSize',18,'FontWeight','bold','FontName','Times'); 
+           set(gca,'FontSize',16,'FontWeight','bold','FontName','Times');
            
            
            % define size of the figure
@@ -1285,8 +1312,9 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            colormap(hsv);
            xlabel(xScaleName); ylabel(yScaleName); 
            obj.setDbColorbar('Phase (rad)');
-           set(gca,'FontSize',18,'FontWeight','bold','FontName','Times');
-           
+           set(gca,'FontSize',16,'FontWeight','bold','FontName','Times');
+           xlabel(xScaleName,'FontSize',18,'FontWeight','bold','FontName','Times');
+           ylabel(yScaleName,'FontSize',18,'FontWeight','bold','FontName','Times'); 
            % define size of the figure
            pos = get(fg2,'position');
            set(fg2,'position',[pos(1),pos(1),1000,400])
@@ -1305,7 +1333,9 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            plot(zScale/1e3,sliceAbs);
            xlabel(xScaleName); xlim([min(zScale/1e3) max(zScale/1e3)])
            ylabel('Average SD (arb. units)');
-           set(gca,'FontSize',18,'FontWeight','bold','FontName','Times');
+           set(gca,'FontSize',16,'FontWeight','bold','FontName','Times');
+           xlabel(xScaleName,'FontSize',18,'FontWeight','bold','FontName','Times');
+           ylabel(yScaleName,'FontSize',18,'FontWeight','bold','FontName','Times'); 
            % define size of the figure
            pos = get(fg3,'position');
            set(fg3,'position',[pos(1),pos(1),1000,400])
@@ -1337,7 +1367,8 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        p.addParamValue('yRange',0,@isnumeric);
        p.addParamValue('zRange',0,@isnumeric);
        p.addParamValue('saveAs','',@isstr);
-       p.addParamValue('freqLimit',[0 25],@isnumeric)
+       p.addParamValue('freqLimit',[0 25],@isnumeric);
+       p.addParamValue('saveMatAs','',@isstr);
        
        p.parse(varargin{:});
        params = p.Results;
@@ -1385,6 +1416,10 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        set(gca,'FontSize',18,'FontName','Times','FontWeight','bold');
        % save figure
        obj.savePlotAs(params.saveAs,gcf);
+       
+       if ~strcmp(params.saveMatAs,'')
+           save(strcat(params.saveMatAs,'.mat'),freqScale,Amp)
+       end     
    end
    
    % make movie
@@ -1561,7 +1596,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        elseif exist('MzFile','var')
            arrSize = size(MzFile,'M');
        elseif exist('MinpFile','var')
-           arrSize = size(MinpFile,'M');      
+           arrSize = size(MinpFile,'Minp');      
        else
            disp('No projections');
            return
@@ -1673,7 +1708,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                % process Mz projection
                disp('Mz');
                Mz = MzFile.M(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
-               tmp = obj.calcFFT(Mz,MxStatic(:,:,zStart:zEnd),windArr);  
+               tmp = obj.calcFFT(Mz,MzStatic(:,:,zStart:zEnd),windArr);  
                clear Mz
                
                % write results of calculation to file
@@ -1695,9 +1730,9 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                % process Minp projection
                disp('Minp');
 
-               Minp = MinpFile.M(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
-               tmp = obj.calcFFT(obj,Minp,[],windArr);
-               clear Mz
+               Minp = MinpFile.Minp(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
+               tmp = obj.calcFFT(Minp,[],windArr);
+               clear Minp
                
                % write results of calculation to file
                disp('Write');
@@ -2054,7 +2089,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                MxFile = matfile(obj.MxName);
                MyFile = matfile(obj.MyName);
                MzFile = matfile(obj.MzName);
-               timeFrames = size(MxFile,'Mx',1);
+               timeFrames = size(MxFile,'M',1);
                
                % initialize array of in-plane magnetization
                Minp = zeros(timeFrames,obj.xnodes,obj.ynodes,obj.znodes);
@@ -2062,9 +2097,9 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                
                for timeStep = 1:timeFrames
                    disp(timeStep);
-                   Mx = squeeze(MxFile.Mx(timeStep,params.xRange,...
+                   Mx = squeeze(MxFile.M(timeStep,params.xRange,...
                        params.yRange,params.zRange));
-                   My = squeeze(MyFile.My(timeStep,params.xRange,...
+                   My = squeeze(MyFile.M(timeStep,params.xRange,...
                        params.yRange,params.zRange));
                    Minp(timeStep,params.xRange,params.yRange,params.zRange) = ...
                        Mx.*InpX+My.*InpY;
