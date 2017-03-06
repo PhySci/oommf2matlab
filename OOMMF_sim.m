@@ -320,7 +320,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    % should be rewritted 
    function plotMSurfXY(obj,varargin)
      p = inputParser;
-     p.addParamValue('slice',8,@isnumeric);
+     p.addParamValue('slice',1,@isnumeric);
      p.addParamValue('proj',@ischar);
      
      p.addParamValue('saveAs','',@isstr);
@@ -1870,13 +1870,13 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        % get required projection of magnetization
        if (strcmp(params.proj,'z'))
            FFTfile = matfile(fullfile(pwd,'MzFFT.mat'));
-           arrSize = size(FFTfile,'Yz');
+           arrSize = size(FFTfile,'Y');
        elseif (strcmp(params.proj,'y'))
            FFTfile = matfile(fullfile(pwd,'MyFFT.mat'));
-           arrSize = size(FFTfile,'Yy');
+           arrSize = size(FFTfile,'Y');
        elseif (strcmp(params.proj,'x'))
            FFTfile = matfile(fullfile(pwd,'MxFFT.mat'));
-           arrSize = size(FFTfile,'Yx');
+           arrSize = size(FFTfile,'Y');
        elseif (strcmp(params.proj,'inp'))
            FFTfile = matfile(fullfile(pwd,'MinpFFT.mat'));
            arrSize = size(FFTfile,'Yinp');    
@@ -1889,30 +1889,12 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        [~,freqInd] = min(abs(freqScale - params.freq));
               
        % select required region of FFT file
-       if (strcmp(params.proj,'z'))
-           Yt = squeeze(FFTfile.Yz(freqInd,...
+      
+           Yt = squeeze(FFTfile.Y(freqInd,...
                params.xRange(1):params.xRange(2),...
                params.yRange(1):params.yRange(2),...
                params.zRange(1):params.zRange(2)));
-       elseif (strcmp(params.proj,'y'))
-           Yt = squeeze(FFTfile.Yy(freqInd,...
-               params.xRange(1):params.xRange(2),...
-               params.yRange(1):params.yRange(2),...
-               params.zRange(1):params.zRange(2)));
-       elseif (strcmp(params.proj,'x'))
-           Yt = squeeze(FFTfile.Yx(freqInd,...
-               params.xRange(1):params.xRange(2),...
-               params.yRange(1):params.yRange(2),...
-               params.zRange(1):params.zRange(2)));
-       elseif (strcmp(params.proj,'inp'))
-           Yt = squeeze(FFTfile.Yinp(freqInd,...
-               params.xRange(1):params.xRange(2),...
-               params.yRange(1):params.yRange(2),...
-               params.zRange(1):params.zRange(2)));    
-       else
-           disp('Unknown projection');
-           return
-       end
+      
        
        % perform FFT along desired spatial direction
        if (strcmp(params.direction,'x'))
@@ -1984,7 +1966,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                imagesc(axis2Scale,axis1Scale,Amp.',[0 max(Amp(:))]);
                axis xy
                xlabel(axis2Label); ylabel(axis1Label);
-               obj.setDbColorbar();
+               obj.setDbColorbar('');
                colormap(flipud(gray));
                freezeColors;
                cbfreeze;
