@@ -38,11 +38,13 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      % list of available extention of magnetisation files
      availableExts = {'omf', 'ohf', 'stc', 'ovf'};
      availableFiles = {'*.omf'; '*.ohf'; '*.stc'; '*.ovf'};
+     availableValues = {'M','H','Heff','Hdemag'};
      staticFile = 'static.stc';
      paramsFile = 'params.mat';
      MxName = 'Mx.mat';
      MyName = 'My.mat';
      MzName = 'Mz.mat';
+     
  end     
  % public methods
  methods
@@ -819,6 +821,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        p.addParamValue('scale','log',@(x) any(strcmp(x,{'log','norm'})));
        p.addParamValue('normalize',true,@islogical);
        p.addParamValue('windowFunc',false,@islogical);
+       p.addParamValue('value','M',@(x) any(strcmp(x,{'H','M','Heff','Hdemag'})));
       
        % process incomming parameters
        p.parse(varargin{:});
@@ -830,7 +833,17 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        % read file of simulation parameters
        obj.getSimParams;
        
-       MFile = matfile(fullfile(obj.folder,strcat('M',params.proj,'FFT.mat')));
+       switch params.value
+           case 'M'
+               MFile = matfile(fullfile(obj.folder,strcat('M',params.proj,'FFT.mat')));              
+           case 'H'
+               MFile = matfile(fullfile(obj.folder,strcat('H',params.proj,'FFT.mat')));
+           case 'Heff'
+               MFile = matfile(fullfile(obj.folder,strcat('Heff_',params.proj,'FFT.mat')));
+           case 'Hdemag'
+               MFile = matfile(fullfile(obj.folder,strcat('Hdemag',params.proj,'FFT.mat')));
+       end
+       
        mSize = size(MFile,'Y');
        
        % fix for 2D systems
@@ -1164,7 +1177,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
     p = inputParser;
    
        p.addParamValue('freq',0,@isnumeric);
-       p.addParamValue('ySlice',3,@isnumeric);
+       p.addParamValue('ySlice',2,@isnumeric);
        
        p.addParamValue('xRange',0,@isnumeric);
        p.addParamValue('yRange',0,@isnumeric);
@@ -1176,6 +1189,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        p.addParamValue('rotate',false,@islogical);
        p.addParamValue('gaussWin',0,@isnumeric);
+       p.addParamValue('value','M',@(x) any(strcmp(x,{'H','M'})));
             
        p.parse(varargin{:});
        params = p.Results;
@@ -1186,7 +1200,12 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        params.proj=lower(params.proj);
 
        % assign file of FFT of Mz
-       FFTFile = matfile(fullfile(obj.folder,strcat('M',params.proj,'FFT.mat')));    
+       switch params.value
+           case 'M'
+               FFTFile = matfile(fullfile(obj.folder,strcat('M',params.proj,'FFT.mat')));    
+           case 'H'
+               FFTFile = matfile(fullfile(obj.folder,strcat('H',params.proj,'FFT.mat')));
+       end        
        arrSize = size(FFTFile,'Y');
 
        % process parameters
@@ -1238,6 +1257,10 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                return
        end
        
+       if strcmp(params.value,'H')
+           fftSlice = fftSlice*1e4;
+       end    
+       
        % apply Gauss window function
        if params.gaussWin >0
            [X,Y] = meshgrid(-params.gaussWin:1:params.gaussWin,-params.gaussWin:1:params.gaussWin);
@@ -1276,7 +1299,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                    ref = 1;
                end
                val = log10(Amp);
-               imagesc(zScale/1e3,xScale,val,[0 max(val(:))]);
+               imagesc(zScale/1e3,xScale,val,[0 abs(max(val(:)))]);
                hcb =colorbar('EastOutside');
                obj.setDbColorbar('Spectral density (dB)');
            else
@@ -1556,8 +1579,8 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        % point out desired projections for processing
        p.addParamValue('proj','xyz',@isstr);
        p.addParamValue('windFunc',false,@islogical);
-       p.addParamValue('value','M',@(x) any(strcmp(x, {'M','H'})))
-       
+       p.addParamValue('value','M',@(x) any(strcmp(x,obj.availableValues)));
+              
        p.parse(folder,varargin{:});
        params = p.Results;
        
@@ -1576,8 +1599,16 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        switch params.value
            case 'M'
                filePrefix = 'M';
+               value = 'M';
            case 'H'
                filePrefix = 'H';
+               value = 'H';
+           case 'Hdemag'
+               filePrefix = 'Hdemag_';
+               value = 'H';
+           case 'Heff'
+               filePrefix = 'Heff_';
+               value = 'H';
            otherwise
                disp('Unknown value');
                return;
@@ -1608,13 +1639,13 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        disp('FFT');
 
        if exist('XFile','var')
-           arrSize = size(XFile,filePrefix);
+           arrSize = size(XFile,value);
        elseif exist('YFile','var')
-           arrSize = size(YFile,filePrefix);
+           arrSize = size(YFile,value);
        elseif exist('ZFile','var')
-           arrSize = size(ZFile,filePrefix);
+           arrSize = size(ZFile,value);
        elseif exist('InpFile','var')
-           arrSize = size(InpFile,filePrefix);      
+           arrSize = size(InpFile,value);      
        else
            disp('No projections');
            return
@@ -1630,7 +1661,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            zStep = 1;
            chunkAmount = 1;
        elseif (params.chunk)
-           zStep = 10;
+           zStep = 4;
            chunkAmount = arrSize(4)/zStep;
        else     
            zStep = arrSize(4);
@@ -1676,11 +1707,24 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            if ~isempty(strfind(params.proj,'x'))
                % process Mx projection
                disp('Mx');
-               Mx = XFile.M(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);        
-               tmp = obj.calcFFT(obj,Mx,MxStatic(:,:,zStart:zEnd),windArr);  
+               switch params.value
+                   case 'M'
+                       Mx = XFile.M(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
+                   case 'H'    
+                       Mx = XFile.H(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
+                   case 'Heff'    
+                       Mx = XFile.H(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);    
+                   case 'Hdemag'    
+                       Mx = XFile.H(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);    
+               end
+               
+               if params.background
+                   tmp = obj.calcFFT(Mx,MxStatic(:,:,zStart:zEnd),windArr);
+               else
+                   tmp = obj.calcFFT(Mx,[],windArr);
+               end    
                clear Mx
                
-               % ������ ���� � �����������
                disp('Write');
                if mod(arrSize(1),2)
                    FFTxFile.Y(1:floor(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
@@ -1730,7 +1774,12 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                        Mz = ZFile.M(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
                    case 'H'
                        Mz = ZFile.H(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
+                   case 'Heff'
+                       Mz = ZFile.H(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
+                   case 'Hdemag'
+                       Mz = ZFile.H(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);    
                end
+               
                if params.background
                    tmp = obj.calcFFT(Mz,MzStatic(:,:,zStart:zEnd),windArr);
                else
