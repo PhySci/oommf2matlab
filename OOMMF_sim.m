@@ -2403,7 +2403,17 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            mfile.Mx = [];
        end
        
-   end    
+   end
+   
+   % return OX scale
+   function res = getXScale(obj)
+       res = linspace(obj.xmin,obj.xmax,obj.xnodes); 
+   end 
+   
+   %return OY scale 
+   function res = getYScale(obj)
+       res = linspace(obj.ymin,obj.ymax,obj.ynodes); 
+   end
    
    % END OF PUBLIC METHODS
  end
@@ -2580,7 +2590,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        else
            res = fft(input,[],1);
        end
-   end    
+   end 
    
  % END OF PRIVATE METHODS
  end
