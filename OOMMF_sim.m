@@ -165,6 +165,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      while (isempty(strfind(line,'Begin: Data Binary')))   
        line = fgetl(fid);  
      end
+     % bootle neck
  
      % determine file format
      format='';
@@ -791,22 +792,23 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            return;
        end
    end
-    
-   % plot dispersion curve along X axis
-   % params:
-   %  - xRange is range of selected cells along X axis
-   %  - yRange is range of selected cells along Y axis
-   %  - zRange is range of selected cells along Z axis
-   %  - scale is determine mormal or log scale of plotted map
-   %  - freqLimit is range of evaluated frequencies
-   %  - waveLimit is range of evaluated wavevectors
-   %  - proj is projection of magnetization which will be used
-   %  - saveAs is name of produced *.fig and *.png files
-   %  - saveMatAs is name of *.mat file for saving of data
-   %  - interpolate is logical value. True for interpolation of the dispersion curve
-   %  - direction is spatial direction along which dispersion will be calculated
-   %  - normalize is determine 
+     
    function plotDispersion(obj,varargin)
+     % Plot dispersion curve along defined axis
+     % params:
+     %  - xRange is range of selected cells along X axis
+     %  - yRange is range of selected cells along Y axis
+     %  - zRange is range of selected cells along Z axis
+     %  - scale is determine mormal or log scale of plotted map
+     %  - freqLimit is range of evaluated frequencies
+     %  - waveLimit is range of evaluated wavevectors
+     %  - proj is projection of magnetization which will be used
+     %  - saveAs is name of produced *.fig and *.png files
+     %  - saveMatAs is name of *.mat file for saving of data
+     %  - interpolate is logical value. True for interpolation of the dispersion curve
+     %  - direction is spatial direction along which dispersion will be calculated
+     %  - normalize is determine
+       
        p = inputParser;
        p.addParamValue('xRange',0,@isnumeric);
        p.addParamValue('yRange',0,@isnumeric);
@@ -822,7 +824,8 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        p.addParamValue('normalize',true,@islogical);
        p.addParamValue('windowFunc',false,@islogical);
        p.addParamValue('value','M',@(x) any(strcmp(x,{'H','M','Heff','Hdemag'})));
-      
+       p.addParamValue('zAverage',false,@islogical); %average frequency-domain FFT along z axis
+       
        % process incomming parameters
        p.parse(varargin{:});
        params = p.Results;
@@ -890,11 +893,11 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            disp('Unknown projection');
            return
        end
-       
-       waveVectorScale = 2*pi*obj.getWaveScale(obj.xstepsize/1e-6,mSize(2));
-       [~,waveVectorInd(1)] = min(abs(waveVectorScale-params.waveLimit(1)));
-       [~,waveVectorInd(2)] = min(abs(waveVectorScale-params.waveLimit(2)));
-       waveVectorScale = waveVectorScale(waveVectorInd(1):waveVectorInd(2));       
+              
+       % average along OZ axis 
+       if params.zAverage
+           FFTres = mean(FFTres,4);
+       end    
        
        % apply window function
        if params.windowFunc
@@ -953,13 +956,13 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            clearvars Y;
            waveVectorScale = 2*pi*obj.getWaveScale(obj.zstepsize/1e-6,mSize(4));
            directionLabel = 'z';
-       end    
-
+       end
+       
        [~,waveVectorInd(1)] = min(abs(waveVectorScale-params.waveLimit(1)));
        [~,waveVectorInd(2)] = min(abs(waveVectorScale-params.waveLimit(2)));
        waveVectorScale = waveVectorScale(waveVectorInd(1):waveVectorInd(2));       
-   
-           
+
+              
        Amp = Amp(:,waveVectorInd(1):waveVectorInd(2));
        
        if (strcmp(params.scale,'log'))
@@ -1238,12 +1241,12 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        switch params.proj
            case 'x'
-               fftSlice = squeeze(FFTFile.Yx(freqInd,...
+               fftSlice = squeeze(FFTFile.Y(freqInd,...
                    params.xRange(1):params.xRange(2),...
                    params.ySlice,...
                    params.zRange(1):params.zRange(2)));
            case 'y'
-               fftSlice = squeeze(FFTFile.Yy(freqInd,...
+               fftSlice = squeeze(FFTFile.Y(freqInd,...
                    params.xRange(1):params.xRange(2),...
                    params.ySlice,...
                    params.zRange(1):params.zRange(2)));
@@ -1307,7 +1310,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                hcb = colorbar('EastOutside');
                obj.setDbColorbar('Spectral density (arb. units)');
            end
-           colormap(flipud(parula));
+           colormap(flipud(gray));
 
           % title(['Spectral density of FFT, \nu = ' num2str(params.freq) ' GHz'],...
           %     'FontSize',20,'FontName','Times');
@@ -1585,9 +1588,15 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        params = p.Results;
        
        obj.getSimParams;
-       % substract backgroung
-       if (params.background) 
-          [MxStatic,MyStatic,MzStatic] = obj.getStatic(params.folder);
+       
+       % load magnetization ground state
+       if (params.background)
+          try
+              [MxStatic,MyStatic,MzStatic] = obj.getStatic(params.folder);
+          catch err
+              disp('Can not load background configuration');
+              return
+          end    
        else
            MxStatic = [];
            MyStatic = [];
@@ -1661,7 +1670,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            zStep = 1;
            chunkAmount = 1;
        elseif (params.chunk)
-           zStep = 4;
+           zStep = 5;
            chunkAmount = arrSize(4)/zStep;
        else     
            zStep = arrSize(4);
@@ -1725,20 +1734,33 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                end    
                clear Mx
                
+  
+               
                disp('Write');
                if mod(arrSize(1),2)
-                   FFTxFile.Y(1:floor(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
-                       tmp((ceil(0.5*arrSize(1))+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
+                   c = tmp((ceil(0.5*arrSize(1))+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
+                   
+                   % FIX: if array is empty, it should be complex empty array  
+                   if (chunkInd ==1) && ~any(nonzeros(c))
+                       FFTxFile.Y(1:floor(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),zStart:zEnd) = complex(c);
+                   else
+                       FFTxFile.Y(1:floor(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),zStart:zEnd) = c;
+                   end  
                    
                    FFTxFile.Y(ceil(0.5*arrSize(1)):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
                        tmp(1:ceil(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),:);
                else
-                   FFTxFile.Y(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) = ...
-                       tmp((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
+                   c = tmp((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
+                   
+                   % FIX: if array is empty, it should be complex empty array
+                   if (chunkInd ==1) && ~any(nonzeros(c))
+                       FFTxFile.Y(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) = complex(c);
+                   else
+                       FFTxFile.Y(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) = c;
+                   end  
                    
                    FFTxFile.Y((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) = ...
-                       tmp(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),:);
-                       
+                       tmp(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),:); 
                end
            end
            
@@ -1806,9 +1828,9 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                % process Minp projection
                disp('Minp');
 
-               Minp = InpFile.Minp(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
+               Minp = InpFile.M(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
                tmp = obj.calcFFT(Minp,[],windArr);
-               clear Mu=inp
+               clear Minp
                
                % write results of calculation to file
                disp('Write');
@@ -2165,7 +2187,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        end
        
        mFile = matfile('Minp.mat','Writable',true);
-       mFile.Minp = Minp; 
+       mFile.M = Minp; 
    end 
    
    %% Interpolation of time dependence
@@ -2532,7 +2554,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        if (~strcmp(params.fName,''))
            savefig(params.handle,strcat(params.fName,params.suffix,'.fig'));
-           print(params.handle,'-dpng','-r600',strcat(params.fName,params.suffix,'.png'));
+           print(params.handle,'-dpng',strcat(params.fName,params.suffix,'.png'));
        end
    end 
    
