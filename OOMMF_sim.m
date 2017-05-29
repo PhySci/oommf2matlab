@@ -715,6 +715,8 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      profsave
      profile viewer
      
+     obj.sendNote('OOMMF_sim','Method: scan folder. Status: finished.')
+     
    end
             
    % return slice of space
@@ -1850,7 +1852,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            end
        end
        end
-     
+       obj.sendNote('OOMMF_sim','Method: make FFT. Status: finished.')
    end
  
    % plot distribution of FFT intensity of Y component of magnetisation
