@@ -792,21 +792,22 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        end
    end
     
-   % plot dispersion curve along X axis
-   % params:
-   %  - xRange is range of selected cells along X axis
-   %  - yRange is range of selected cells along Y axis
-   %  - zRange is range of selected cells along Z axis
-   %  - scale is determine mormal or log scale of plotted map
-   %  - freqLimit is range of evaluated frequencies
-   %  - waveLimit is range of evaluated wavevectors
-   %  - proj is projection of magnetization which will be used
-   %  - saveAs is name of produced *.fig and *.png files
-   %  - saveMatAs is name of *.mat file for saving of data
-   %  - interpolate is logical value. True for interpolation of the dispersion curve
-   %  - direction is spatial direction along which dispersion will be calculated
-   %  - normalize is determine 
    function plotDispersion(obj,varargin)
+       % plot dispersion curve along X axis
+       % params:
+       %  - xRange is range of selected cells along X axis
+       %  - yRange is range of selected cells along Y axis
+       %  - zRange is range of selected cells along Z axis
+       %  - scale is determine mormal or log scale of plotted map
+       %  - freqLimit is range of evaluated frequencies
+       %  - waveLimit is range of evaluated wavevectors
+       %  - proj is projection of magnetization which will be used
+       %  - saveAs is name of produced *.fig and *.png files
+       %  - saveMatAs is name of *.mat file for saving of data
+       %  - interpolate is logical value. True for interpolation of the dispersion curve
+       %  - direction is spatial direction along which dispersion will be calculated
+       %  - normalize is determine
+       
        p = inputParser;
        p.addParamValue('xRange',0,@isnumeric);
        p.addParamValue('yRange',0,@isnumeric);
@@ -844,7 +845,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                MFile = matfile(fullfile(obj.folder,strcat('Hdemag',params.proj,'FFT.mat')));
        end
        
-       mSize = size(MFile,'Y');
+       mSize = size(MFile,'Yz');
        
        % fix for 2D systems
        if (numel(mSize) == 3)
@@ -871,7 +872,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        
        if (strcmp(params.proj,'z'))
-           FFTres = MFile.Y(freqScaleInd(1):freqScaleInd(2),params.xRange(1):params.xRange(2),...
+           FFTres = MFile.Yz(freqScaleInd(1):freqScaleInd(2),params.xRange(1):params.xRange(2),...
                params.yRange(1):params.yRange(2),...
                params.zRange(1):params.zRange(2));
        elseif (strcmp(params.proj,'x'))
@@ -1024,15 +1025,15 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        end
    end
       
-   % Plot spatial map of FFT distribution for a given frequency
-   % params:
-   %  - freq is desired frequency of FFT
-   %  - zSlice is desired Z slice of FFT
-   %  - xRange & yRange are ranges of X and Y coordinates
-   %  - scale is scale of plots (norm, log)
-   %  - rotate is bool valus allows  rotating of images
-   %  - saveAs is name of output *.png and *.fig files  
    function plotFFTSliceZ(obj,varargin)
+       % Plot spatial map of FFT distribution for a given frequency
+       % params:
+       %  - freq is desired frequency of FFT
+       %  - zSlice is desired Z slice of FFT
+       %  - xRange & yRange are ranges of X and Y coordinates
+       %  - scale is scale of plots (norm, log)
+       %  - rotate is bool valus allows  rotating of images
+       %  - saveAs is name of output *.png and *.fig files
        
        p = inputParser;
        p.addParamValue('freq',0,@isnumeric);
@@ -1069,7 +1070,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                return
        end        
                
-       arrSize = size(FFTFile,'Y');
+       arrSize = size(FFTFile,'Yz');
        
        % process range parameters
        if (params.xRange  == 0)
@@ -1093,7 +1094,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        shiftFreqScale = ifftshift(freqScale);
        [~,freqInd] = min(abs(shiftFreqScale-params.freq));
        
-       fftSlice = MzFFTFile.Y(freqInd,params.xRange(1):params.xRange(2),...
+       fftSlice = MzFFTFile.Yz(freqInd,params.xRange(1):params.xRange(2),...
            params.yRange(1):params.yRange(2),params.zSlice);
        
        if (size(fftSlice,4)>1)
@@ -1120,8 +1121,11 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        end    
 
        % plot amplitude map
+       
+       orientation =  [2,1];
+       
        fg1 = figure(1);
-       subplot(2,1,1);
+       subplot(orientation(1),orientation(2),1);
            ref = min(Amp(find(Amp(:))));
 
            if strcmp(params.scale,'log')
@@ -1141,7 +1145,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                cbfreeze(flipud(gray))
                cblabel('arb. units');
            end    
-           %title(['Amplitude of FFT, \nu=' num2str(params.freq) 'GHz, slice ' num2str(params.zSlice)]);
+           title(['Amplitude of FFT, \nu=' num2str(params.freq) 'GHz, slice ' num2str(params.zSlice)]);
            axis xy equal; 
            xlabel(xLabelStr); ylabel(yLabelStr);
            freezeColors;
@@ -1152,9 +1156,9 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
 
        % plot phase map   
        %fg2 = figure(2);
-       subplot(2,1,2);
+       subplot(orientation(1),orientation(2),2);
            imagesc(yScale,xScale,Phase,[-pi pi]);
-           %title(['Phase of FFT, \nu=' num2str(params.freq) 'GHz, slice ' num2str(params.zSlice)]);
+           title(['Phase of FFT, \nu=' num2str(params.freq) 'GHz, slice ' num2str(params.zSlice)]);
            
            axis xy equal; colormap(hsv);
            colorbar('EastOutside'); cblabel('rad.');
@@ -1168,14 +1172,13 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        %obj.savePlotAs(params.saveAs,fg2,'suffix','-phase');
    end 
    
-   
-    % plot spatial map of FFT distribution for a given frequency
-    % parameters
-    %       freq - desired frequency
-    %       rotate - rotate the image (false) 
    function plotFFTSliceY(obj,varargin)
-    p = inputParser;
-   
+       % plot spatial map of FFT distribution for a given frequency
+       % parameters
+       %       freq - desired frequency
+       %       rotate - rotate the image (false)
+       
+       p = inputParser;
        p.addParamValue('freq',0,@isnumeric);
        p.addParamValue('ySlice',2,@isnumeric);
        
@@ -1398,7 +1401,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        FFTFile = matfile('MzFFT.mat'); 
        
-       mSize = size(FFTFile,'Y');
+       mSize = size(FFTFile,'Yz');
        % process input range parameters
        if (params.xRange == 0)
            params.xRange = [1 mSize(2)];
@@ -1420,7 +1423,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        freqScale = freqScale(freqScaleInd(1):freqScaleInd(2));
        
        
-       FFT = FFTFile.Y(freqScaleInd(1):freqScaleInd(2),...
+       FFT = FFTFile.Yz(freqScaleInd(1):freqScaleInd(2),...
            params.xRange(1):params.xRange(2),...
            params.yRange(1):params.yRange(2),...
            params.zRange(1):params.zRange(2));
@@ -1428,12 +1431,12 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        if (strcmp(params.scale,'norm'))
            plot(freqScale,Amp);
-           ylabel('Spectral density (arb. units)');
+           ylabel('Spectral density (arb. units)','FontSize',18,'FontName','Times','FontWeight','bold');
        else
            semilogy(freqScale,Amp);
-           ylabel('Spectral density (dB)');
+           ylabel('Spectral density (dB)','FontSize',18,'FontName','Times','FontWeight','bold');
        end
-       xlim(params.freqLimit); xlabel('Frequency (GHz)');
+       xlim(params.freqLimit); xlabel('Frequency (GHz)','FontSize',18,'FontName','Times','FontWeight','bold');
        %num2clip([freqScale(find(freqScale>=0)).' Amp(find(freqScale>=0))]);
        
        set(gca,'FontSize',18,'FontName','Times','FontWeight','bold');
@@ -1462,7 +1465,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        G = fspecial('gaussian',[3 3],0.9);
        
        MzFile = matfile('Mz.mat');
-       Mz = squeeze(MzFile.Mz(end-params.timeFrames : end,:,params.yRange,params.zSlice));
+       Mz = squeeze(MzFile.M(end-params.timeFrames : end,:,params.yRange,params.zSlice));
        
        if strcmp(params.fName,'')
            videoFile = generateFileName(pwd,'movie','mp4');
@@ -2415,6 +2418,11 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        res = linspace(obj.ymin,obj.ymax,obj.ynodes); 
    end
    
+   %return OZ scale
+   function res = getZScale(obj)
+       res = linspace(obj.zmin,obj.zmax,obj.znodes); 
+   end
+   
    % END OF PUBLIC METHODS
  end
  
@@ -2590,10 +2598,29 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        else
            res = fft(input,[],1);
        end
-   end 
+   end
    
+  
  % END OF PRIVATE METHODS
  end
+ 
+ %%Static Methods 
+ methods(Static)
+     
+     function sendNote(title,msg)
+       try
+           fid = fopen('api.key');
+           APIkey = fgetl(fid);
+           fclose(fid);
+       catch Err
+           error('sendNote:openFile','Can not open file')
+       end
+       
+       p = Pushbullet(APIkey);
+       p.pushNote([],title,msg);
+   end
+ end
+ % End of static methods 
  
  % END OF CLASS
 end
