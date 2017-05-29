@@ -148,6 +148,8 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
      xlabel('Frequency (GHz)','FontSize',18,'FontName','Times','FontWeight','bold'); 
      xlim([params.freqLim(1) params.freqLim(2)]);
      ylabel('SD (arb. units)','FontSize',18,'FontName','Times','FontWeight','bold');
+     
+     
     % title('FFT of M_z projection');
      
      set(gca,'FontSize',14,'FontName','Times','FontWeight','bold');
@@ -178,10 +180,16 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
      else
        semilogy(freq,Y);  
      end    
-       xlabel('Freq, GHz'); xlim([0,30]);
-       ylabel('FFT intensity');
+     %  xlabel('Freq, GHz'); xlim([0,30]);
+     %  ylabel('FFT intensity');
+       
+     xlabel('Frequency (GHz)','FontSize',18,'FontName','Times','FontWeight','bold'); 
+     xlim([params.freqLim(1) params.freqLim(2)]);
+     ylabel('SD (arb. units)','FontSize',18,'FontName','Times','FontWeight','bold');
+     set(gca,'FontSize',16,'FontName','Times','FontWeight','bold');
      
-     title(strcat('FFT of M_x projection.'));
+     %title(strcat('FFT of M_x projection.'));
+     
      xlim([params.freqLim(1) params.freqLim(2)]);
      
      if (params.saveImg)
