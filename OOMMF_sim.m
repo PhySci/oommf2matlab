@@ -1628,51 +1628,43 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        %% initialize input and output files
        if ~isempty(strfind(params.proj,'x'))
            XFile = matfile(fullfile(folder,[filePrefix,'x.mat']));
+           arrSize = size(XFile,value);
            FFTxFile = matfile(fullfile(folder,[filePrefix,'xFFT.mat']),'Writable',true);
        end
        
        if ~isempty(strfind(params.proj,'y'))
            YFile = matfile(fullfile(folder,[filePrefix,'y.mat']));
+           arrSize = size(YFile,value);
            FFTyFile = matfile(fullfile(folder,[filePrefix,'xFFT.mat']),'Writable',true);
        end
        
        if ~isempty(strfind(params.proj,'z'))
            ZFile = matfile(fullfile(folder,[filePrefix,'z.mat']));
+           arrSize = size(ZFile,value);
            FFTzFile = matfile(fullfile(folder,[filePrefix,'zFFT.mat']),'Writable',true);
        end
        
        if ~isempty(strfind(params.proj,'inp'))
            InpFile = matfile(fullfile(folder,[filePrefix,'inp.mat']));
+           arrSize = size(InpFile,value);
            FFTinpFile = matfile(fullfile(folder,[filePrefix,'inpFFT.mat']),'Writable',true);
        end
-       
-       %% define array size 
-       disp('FFT');
 
-       if exist('XFile','var')
-           arrSize = size(XFile,value);
-       elseif exist('YFile','var')
-           arrSize = size(YFile,value);
-       elseif exist('ZFile','var')
-           arrSize = size(ZFile,value);
-       elseif exist('InpFile','var')
-           arrSize = size(InpFile,value);      
-       else
-           disp('No projections');
-           return
-       end
-       
+       % fix for 2D systems
+       % @TODO, probably, it does not work.
        if numel(arrSize) ==3
            arrSize(4) = 1;
        end    
-       
-       
+
+              
        %% process chunk
+       disp('FFT');
+
        if (numel(arrSize)==3)
            zStep = 1;
            chunkAmount = 1;
        elseif (params.chunk)
-           zStep = 5;
+           zStep = 3;
            chunkAmount = arrSize(4)/zStep;
        else     
            zStep = arrSize(4);
@@ -1687,7 +1679,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            windArr = [];
        end
        
-       
+       %% Process 2D systems
        if (arrSize(4)==1)
            if ~isempty(strfind(params.proj,'x'))
                disp('Mx');
@@ -1735,9 +1727,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                    tmp = obj.calcFFT(Mx,[],windArr);
                end    
                clear Mx
-               
-  
-               
+                
                disp('Write');
                if mod(arrSize(1),2)
                    c = tmp((ceil(0.5*arrSize(1))+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
@@ -1852,13 +1842,13 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        end
      
    end
- 
-   % plot distribution of FFT intensity of Y component of magnetisation
-   % in coordinates (Yaxis - Frequency)
-   % parameters:
-   %   - freqLimit is desired range of frequency 
-   %   - xRange, yRange, zRange are border of interesting area 
+  
    function plotYFreqMap(obj,varargin)
+     % plot distribution of FFT intensity of Y component of magnetisation
+     % in coordinates (Yaxis - Frequency)
+     % parameters:
+     %   - freqLimit is desired range of frequency 
+     %   - xRange, yRange, zRange are border of interesting area
        
        p = inputParser;
        p.addParamValue('freqLimit',[0.1 20],@isnumeric);
