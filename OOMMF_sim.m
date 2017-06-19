@@ -1041,7 +1041,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        p = inputParser;
        p.addParamValue('freq',0,@isnumeric);
-       p.addParamValue('zSlice',5,@isnumeric);
+       p.addParamValue('zSlice',1,@isnumeric);
        p.addParamValue('xRange',0,@isnumeric);
        p.addParamValue('yRange',0,@isnumeric);
        p.addParamValue('scale','log', @(x) any(strcmp(x,{'norm','log'})));
@@ -1059,7 +1059,6 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        % assign file of FFT of Mz
        % select projections
        
-       MzFFTFile = matfile(fullfile(obj.folder,'MzFFT.mat'));
        switch params.proj
            case 'x'
                FFTFile = matfile(fullfile(obj.folder,'MxFFT.mat'));
@@ -1074,7 +1073,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                return
        end        
                
-       arrSize = size(FFTFile,'Yz');
+       arrSize = size(FFTFile,'Y');
        
        % process range parameters
        if (params.xRange  == 0)
@@ -1095,10 +1094,9 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        yScale = yScale(params.yRange(1):params.yRange(2));  
        
        freqScale = obj.getWaveScale(obj.dt,arrSize(1))/1e9;
-       shiftFreqScale = ifftshift(freqScale);
-       [~,freqInd] = min(abs(shiftFreqScale-params.freq));
+       [~,freqInd] = min(abs(freqScale-params.freq));
        
-       fftSlice = MzFFTFile.Yz(freqInd,params.xRange(1):params.xRange(2),...
+       fftSlice = FFTFile.Y(freqInd,params.xRange(1):params.xRange(2),...
            params.yRange(1):params.yRange(2),params.zSlice);
        
        if (size(fftSlice,4)>1)
@@ -1126,54 +1124,52 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
 
        % plot amplitude map
        
-       orientation =  [2,1];
-       
+      
        fg1 = figure(1);
-       subplot(orientation(1),orientation(2),1);
-           ref = min(Amp(find(Amp(:))));
+       clf(fg1)
+       ref = min(Amp(find(Amp(:))));
 
-           if strcmp(params.scale,'log')
-               if (isempty(ref))
-                   ref = 1;
-               end    
-               imagesc(yScale,xScale,log10(Amp/ref));
-               colorbar('EastOutside');
-               colormap(flipud(gray));
-               cbfreeze(flipud(gray))
-               cblabel('dB');
-           else
-               imagesc(yScale,xScale,Amp,[0 1.05*max(Amp(:))]);
-               axis xy equal;
-               colorbar('EastOutside');
-               colormap(flipud(gray));
-               cbfreeze(flipud(gray))
-               cblabel('arb. units');
+       if strcmp(params.scale,'log')
+           if (isempty(ref))
+               ref = 1;
            end    
-           title(['Amplitude of FFT, \nu=' num2str(params.freq) 'GHz, slice ' num2str(params.zSlice)]);
-           axis xy equal; 
-           xlabel(xLabelStr); ylabel(yLabelStr);
-           freezeColors;
-           cbfreeze;
-           xlim([min(yScale) max(yScale)]);
-           ylim([min(xScale) max(xScale)]);
+           imagesc(yScale,xScale,log10(Amp/ref));
+           colorbar('EastOutside');
+           colormap(flipud(gray));
+           cbfreeze(flipud(gray))
+           cblabel('dB');
+       else
+           imagesc(yScale,xScale,Amp);
+           axis xy equal;
+           colorbar('EastOutside');
+           colormap(flipud(gray));
+           %cbfreeze(flipud(gray))
+           %cblabel('arb. units');
+       end    
+       title(['Amplitude of FFT, \nu=' num2str(params.freq) 'GHz, slice ' num2str(params.zSlice)]);
+       axis xy equal; 
+       xlabel(xLabelStr); ylabel(yLabelStr);
+       %freezeColors;
+       %cbfreeze;
+       xlim([min(yScale) max(yScale)]);
+       ylim([min(xScale) max(xScale)]);
 
 
        % plot phase map   
-       %fg2 = figure(2);
-       subplot(orientation(1),orientation(2),2);
-           imagesc(yScale,xScale,Phase,[-pi pi]);
-           title(['Phase of FFT, \nu=' num2str(params.freq) 'GHz, slice ' num2str(params.zSlice)]);
-           
-           axis xy equal; colormap(hsv);
-           colorbar('EastOutside'); cblabel('rad.');
-           xlabel(xLabelStr); ylabel(yLabelStr);
-           xlim([min(yScale) max(yScale)]);
-           ylim([min(xScale) max(xScale)]);
+       fg2 = figure(2);
+       imagesc(yScale,xScale,Phase,[-pi pi]);
+       title(['Phase of FFT, \nu=' num2str(params.freq) 'GHz, slice ' num2str(params.zSlice)]);
+
+       axis xy equal; colormap(hsv);
+       colorbar('EastOutside'); cblabel('rad.');
+       xlabel(xLabelStr); ylabel(yLabelStr);
+       xlim([min(yScale) max(yScale)]);
+       ylim([min(xScale) max(xScale)]);
           
        
        % save figure
-       obj.savePlotAs(params.saveAs,fg1);
-       %obj.savePlotAs(params.saveAs,fg2,'suffix','-phase');
+       obj.savePlotAs(params.saveAs,fg1,'suffix','-amp');     
+       obj.savePlotAs(params.saveAs,fg2,'suffix','-phase');
    end 
    
    function plotFFTSliceY(obj,varargin)
@@ -1693,22 +1689,22 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        if (arrSize(4)==1)
            if ~isempty(strfind(params.proj,'x'))
                disp('Mx');
-               Mx = XFile.M(1:arrSize(1),1:arrSize(2),1:arrSize(3));        
-               FFTxFile.Y = fftshift(obj.calcFFT(Mx,MxStatic,windArr));  
+               Mx = XFile.M(1:arrSize(1),1:arrSize(2),1:arrSize(3));
+               FFTxFile.Y = fftshift(obj.calcFFT(Mx,MxStatic,windArr),1);
                clear Mx
            end
            
            if ~isempty(strfind(params.proj,'y'))
                disp('My');
                My = YFile.M(1:arrSize(1),1:arrSize(2),1:arrSize(3));
-               FFTyFile.Y = fftshift(obj.calcFFT(My,MxStatic,windArr));
+               FFTyFile.Y = fftshift(obj.calcFFT(My,MxStatic,windArr),1);
                clear My
            end
            
            if ~isempty(strfind(params.proj,'z'))
                disp('Mz');
                Mz = ZFile.M(1:arrSize(1),1:arrSize(2),1:arrSize(3));
-               FFTzFile.Y = fftshift(obj.calcFFT(Mz,MzStatic,windArr));
+               FFTzFile.Y = fftshift(obj.calcFFT(Mz,MzStatic,windArr),1);
                clear Mz
            end    
        else
