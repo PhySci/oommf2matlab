@@ -603,24 +603,19 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      % parse input parameters
      p = inputParser;
      p.addRequired('path',@ischar);
-     p.addParamValue('deleteFiles', false,@islogical);
-     p.addParamValue('showMemory',false,@islogical);
-     p.addParamValue('makeFFT',false,@islogical);
-     p.addParamValue('fileBase','',@isstr);
-     p.addParamValue('fileExt','',@isstr);
-     p.addParamValue('savePath','',@isstr);
-     p.addParamValue('value','M',@(x) any(strcmp(x,{'M','H'})));
+     p.addParameter('deleteFiles', false,@islogical);
+     p.addParameter('showMemory',false,@islogical);
+     p.addParameter('makeFFT',false,@islogical);
+     p.addParameter('fileBase','',@isstr);
+     p.addParameter('fileExt','',@isstr);
+     p.addParameter('value','M',@(x) any(strcmp(x,{'M','H'})));
+     % folder to save results
+     p.addParameter('destination','.',@(x) exist(x,'dir')==7);
      
      p.parse(path,varargin{:});
      params = p.Results;
      
-     
-     if strcmp(params.savePath,'')
-         savePath = path;
-     else
-         savePath = params.savePath; 
-     end
-     
+          
      % select extension for magnetization (*.omf) or field (*.ohf) files
      if (isempty(params.fileExt) && strcmp(params.value,'M'))
          params.fileExt = 'omf'; 
@@ -638,7 +633,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      [~, fName, ~] = fileparts(file.name);
      obj.fName = strcat(path,filesep,fName);
      obj.loadParams('fileExt',params.fileExt);
-     save(strcat(savePath,filesep,'params.mat'), 'obj');
+     save(strcat(params.destination,filesep,'params.mat'), 'obj');
           
      % evaluate required memory and compare with available space
       % memory required for one time frame 
@@ -648,9 +643,9 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      heapSize = min(ceil(availableSpace/oneTimeFrameMemory),size(fList,1))
           
      % create files and variables   
-     XFile = matfile(fullfile(savePath,strcat(params.value,'x.mat')),'Writable',true);
-     YFile = matfile(fullfile(savePath,strcat(params.value,'y.mat')),'Writable',true);
-     ZFile = matfile(fullfile(savePath,strcat(params.value,'z.mat')),'Writable',true);
+     XFile = matfile(fullfile(params.destination,strcat(params.value,'x.mat')),'Writable',true);
+     YFile = matfile(fullfile(params.destination,strcat(params.value,'y.mat')),'Writable',true);
+     ZFile = matfile(fullfile(params.destination,strcat(params.value,'z.mat')),'Writable',true);
       
      
      % create heap array
@@ -712,6 +707,9 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
              delete(strcat(obj.fName,'.',fileExt));
          end                       
      end
+     
+     obj.sendNote('Phy-Effort','ScanFolder is finished');
+     
      profsave
      profile viewer
      
@@ -849,7 +847,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                MFile = matfile(fullfile(obj.folder,strcat('Hdemag',params.proj,'FFT.mat')));
        end
        
-       mSize = size(MFile,'Yz');
+       mSize = size(MFile,'Y');
        
        % fix for 2D systems
        if (numel(mSize) == 3)
@@ -1576,13 +1574,17 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    %    useGPU - use GPU (boolean)
    
        p = inputParser;
-       p.addRequired('folder',@isdir);
-       p.addParamValue('background',true,@islogical);
-       p.addParamValue('chunk',false,@islogical);
+
+       p.addParameter('background',true,@islogical);       
+       p.addParameter('chunk',false,@islogical);
        % point out desired projections for processing
-       p.addParamValue('proj','xyz',@isstr);
-       p.addParamValue('windFunc',false,@islogical);
-       p.addParamValue('value','M',@(x) any(strcmp(x,obj.availableValues)));
+       p.addParameter('proj','xyz',@isstr);
+       p.addParameter('windFunc',false,@islogical);
+       p.addParameter('value','M',@(x) any(strcmp(x,obj.availableValues)));
+       % folder to save results
+       p.addParameter('destination','.', @(x) exist(x,'dir')==7);
+       % folder to read data from 
+       p.addParameter('source','.', @(x) exist(x,'dir')==7);
               
        p.parse(folder,varargin{:});
        params = p.Results;
@@ -1592,7 +1594,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        % load magnetization ground state
        if (params.background)
           try
-              [MxStatic,MyStatic,MzStatic] = obj.getStatic(params.folder);
+              [MxStatic,MyStatic,MzStatic] = obj.getStatic(params.source);
           catch err
               disp('Can not load background configuration');
               return
@@ -1625,27 +1627,27 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        %% initialize input and output files
        if ~isempty(strfind(params.proj,'x'))
-           XFile = matfile(fullfile(folder,[filePrefix,'x.mat']));
+           XFile = matfile(fullfile(params.source,[filePrefix,'x.mat']));
            arrSize = size(XFile,value);
-           FFTxFile = matfile(fullfile(folder,[filePrefix,'xFFT.mat']),'Writable',true);
+           FFTxFile = matfile(fullfile(params.destination,[filePrefix,'xFFT.mat']),'Writable',true);
        end
        
        if ~isempty(strfind(params.proj,'y'))
-           YFile = matfile(fullfile(folder,[filePrefix,'y.mat']));
+           YFile = matfile(fullfile(params.source,[filePrefix,'y.mat']));
            arrSize = size(YFile,value);
-           FFTyFile = matfile(fullfile(folder,[filePrefix,'xFFT.mat']),'Writable',true);
+           FFTyFile = matfile(fullfile(params.destination,[filePrefix,'xFFT.mat']),'Writable',true);
        end
        
        if ~isempty(strfind(params.proj,'z'))
-           ZFile = matfile(fullfile(folder,[filePrefix,'z.mat']));
+           ZFile = matfile(fullfile(params.source,[filePrefix,'z.mat']));
            arrSize = size(ZFile,value);
-           FFTzFile = matfile(fullfile(folder,[filePrefix,'zFFT.mat']),'Writable',true);
+           FFTzFile = matfile(fullfile(params.destination,[filePrefix,'zFFT.mat']),'Writable',true);
        end
        
        if ~isempty(strfind(params.proj,'inp'))
-           InpFile = matfile(fullfile(folder,[filePrefix,'inp.mat']));
+           InpFile = matfile(fullfile(params.source,[filePrefix,'inp.mat']));
            arrSize = size(InpFile,value);
-           FFTinpFile = matfile(fullfile(folder,[filePrefix,'inpFFT.mat']),'Writable',true);
+           FFTinpFile = matfile(fullfile(params.destination,[filePrefix,'inpFFT.mat']),'Writable',true);
        end
 
        % fix for 2D systems
@@ -1662,8 +1664,8 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            zStep = 1;
            chunkAmount = 1;
        elseif (params.chunk)
-           zStep = 3;
-           chunkAmount = arrSize(4)/zStep;
+           zStep = 2;
+           chunkAmount = ceil(arrSize(4)/zStep);
        else     
            zStep = arrSize(4);
            chunkAmount = 1;
@@ -1703,7 +1705,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        for chunkInd = 1:chunkAmount
            zStart = (chunkInd-1)*zStep+1
-           zEnd   = chunkInd*zStep
+           zEnd   = min(chunkInd*zStep,obj.znodes)
                      
            if ~isempty(strfind(params.proj,'x'))
                % process Mx projection
@@ -1740,13 +1742,15 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                    FFTxFile.Y(ceil(0.5*arrSize(1)):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
                        tmp(1:ceil(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),:);
                else
-                   c = tmp((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
+                   %c = tmp((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
                    
                    % FIX: if array is empty, it should be complex empty array
-                   if (chunkInd ==1) && ~any(nonzeros(c))
-                       FFTxFile.Y(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) = complex(c);
+                   if (chunkInd ==1) % && ~any(nonzeros(tmp((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),:)))
+                       FFTxFile.Y(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
+                           complex(tmp((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),:));
                    else
-                       FFTxFile.Y(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) = c;
+                       FFTxFile.Y(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
+                           tmp((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
                    end  
                    
                    FFTxFile.Y((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) = ...
@@ -2050,53 +2054,58 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        Phase = angle(YtsSlice);
        
        fig1 = figure(1);
-           subplot(211);
+           %subplot(211);
                imagesc(axis2Scale,axis1Scale,Amp.',[0 max(Amp(:))]);
                axis xy
                xlabel(axis2Label); ylabel(axis1Label);
                obj.setDbColorbar('');
                colormap(flipud(gray));
-               freezeColors;
-               cbfreeze;
+              % freezeColors;
+              % cbfreeze;
                title(['\nu = ',num2str(params.freq),' GHz, k = ',num2str(params.k),...
                    '\mum, M_',params.proj,' projection'],'FontSize',14,'FontName','Times');
 
-           subplot(212);
+        fig2 = figure(2);
+
+           %subplot(212);
                imagesc(axis2Scale,axis1Scale,Phase.',[-pi pi]);
                axis xy
                xlabel(axis2Label); ylabel(axis1Label);
                colorbar('EastOutside');
-               cblabel('rad.');
+            %   cblabel('rad.');
                colormap(hsv);
-           
-      fig2 = figure(2);
-          meanAmp = mean(Amp,1);
-          meanPhase = mean(Phase,1);
-          res = meanAmp;
-          subplot(211);
-              plot(axis2Scale,meanAmp);
-              title(['\nu = ',num2str(params.freq),' GHz, k = ',num2str(params.k),...
+               title(['\nu = ',num2str(params.freq),' GHz, k = ',num2str(params.k),...
                    '\mum, M_',params.proj,' projection'],'FontSize',14,'FontName','Times');
-              xlabel(axis2Label); ylabel('Amplitude (arb. u.)')
+           
+      %fig2 = figure(2);
+      %    meanAmp = mean(Amp,1);
+      %    meanPhase = mean(Phase,1);
+      %    res = meanAmp;
+      %    subplot(211);
+      %        plot(axis2Scale,meanAmp);
+      %         title(['\nu = ',num2str(params.freq),' GHz, k = ',num2str(params.k),...
+      %             '\mum, M_',params.proj,' projection'],'FontSize',14,'FontName','Times');
+      %        xlabel(axis2Label); ylabel('Amplitude (arb. u.)')
 
             
-          subplot(212);
-              meanPhase(find(meanPhase<0)) = meanPhase(find(meanPhase<0))+2*pi;
-              plot(axis2Scale,meanPhase);
-              xlabel(axis2Label); ylabel('Phase (rad)');
-       
-      fig3 = figure(3);
-          x = Amp(1,:).*cos(Phase(1,:)); 
-          y = Amp(1,:).*sin(Phase(1,:)); 
+      %    subplot(212);
+      %        meanPhase(find(meanPhase<0)) = meanPhase(find(meanPhase<0))+2*pi;
+      %        plot(axis2Scale,meanPhase);
+      %        xlabel(axis2Label); ylabel('Phase (rad)');
+      %
+      
+      %fig3 = figure(3);
+      %    x = Amp(1,:).*cos(Phase(1,:)); 
+      %    y = Amp(1,:).*sin(Phase(1,:)); 
 
-          subplot(211);
-              plot(axis2Scale,x);
-              xlabel(axis1Label); ylabel('Amplitude (arb. u.)');
-          subplot(212);
-              plot(axis2Scale,y);
-              xlabel(axis1Label); ylabel('Amplitude (arb. u.)');
+      %    subplot(211);
+      %        plot(axis2Scale,x);
+      %        xlabel(axis1Label); ylabel('Amplitude (arb. u.)');
+      %    subplot(212);
+      %        plot(axis2Scale,y);
+      %        xlabel(axis1Label); ylabel('Amplitude (arb. u.)');
               
-          save branch4.mat Amp Phase    
+      %    save branch4.mat Amp Phase    
 
        % save img
        if (~strcmp(params.saveAs,''))
@@ -2626,7 +2635,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        end
        
        p = Pushbullet(APIkey);
-       p.pushNote([],title,msg);
+       p.pushNote([],title,msg)
    end
  end
  % End of static methods 
