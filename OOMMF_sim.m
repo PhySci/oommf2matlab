@@ -849,7 +849,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                MFile = matfile(fullfile(obj.folder,strcat('Hdemag',params.proj,'FFT.mat')));
        end
        
-       mSize = size(MFile,'Yz');
+       mSize = size(MFile,'Y');
        
        % fix for 2D systems
        if (numel(mSize) == 3)
@@ -1478,10 +1478,10 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        % load parameters
        % calculate axis
-       simParams = obj.getSimParams;
+       obj.getSimParams;
               
-       xScale = linspace(simParams.xmin,simParams.xmax,simParams.xnodes)/1e-6;
-       yScale = linspace(simParams.ymin,simParams.ymax,simParams.ynodes)/1e-6;
+       xScale = linspace(obj.xmin,obj.xmax,obj.xnodes)/1e-6;
+       yScale = linspace(obj.ymin,obj.ymax,obj.ynodes)/1e-6;
        yScale = yScale(params.yRange);
        
        fig=figure(1);
