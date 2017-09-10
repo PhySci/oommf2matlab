@@ -708,12 +708,12 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
          end                       
      end
      
-     obj.sendNote('Phy-Effort','ScanFolder is finished');
+     %obj.sendNote('Phy-Effort','ScanFolder is finished');
      
      profsave
      profile viewer
      
-     obj.sendNote('OOMMF_sim','Method: scan folder. Status: finished.')
+     %obj.sendNote('OOMMF_sim','Method: scan folder. Status: finished.')
      
    end
             

@@ -167,7 +167,7 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
      p = inputParser;
      p.addParamValue('scale','norm',@(x) ismember(x,{'norm','log'}));
      p.addParamValue('saveImg',false,@islogical);
-     p.addParamValue('freqLim',[0 15],@isnumeric);
+     p.addParamValue('freqLim',[0 25],@isnumeric);
      p.parse(varargin{:});
      params = p.Results; 
      
