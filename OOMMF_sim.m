@@ -704,16 +704,16 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
          end    
          
          if (params.deleteFiles)
-             delete(strcat(obj.fName,'.',fileExt));
+             delete(strcat(obj.fName,'.',params.fileExt));
          end                       
      end
      
-     obj.sendNote('Phy-Effort','ScanFolder is finished');
+     %obj.sendNote('Phy-Effort','ScanFolder is finished');
      
      profsave
      profile viewer
      
-     obj.sendNote('OOMMF_sim','Method: scan folder. Status: finished.')
+     %obj.sendNote('OOMMF_sim','Method: scan folder. Status: finished.')
      
    end
             
@@ -874,7 +874,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        
        if (strcmp(params.proj,'z'))
-           FFTres = MFile.Yz(freqScaleInd(1):freqScaleInd(2),params.xRange(1):params.xRange(2),...
+           FFTres = MFile.Y(freqScaleInd(1):freqScaleInd(2),params.xRange(1):params.xRange(2),...
                params.yRange(1):params.yRange(2),...
                params.zRange(1):params.zRange(2));
        elseif (strcmp(params.proj,'x'))
@@ -1134,8 +1134,8 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            imagesc(yScale,xScale,log10(Amp/ref));
            colorbar('EastOutside');
            colormap(flipud(gray));
-           cbfreeze(flipud(gray))
-           cblabel('dB');
+           %cbfreeze(flipud(gray))
+           %cblabel('dB');
        else
            imagesc(yScale,xScale,Amp);
            axis xy equal;
@@ -1399,7 +1399,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        FFTFile = matfile('MzFFT.mat'); 
        
-       mSize = size(FFTFile,'Yz');
+       mSize = size(FFTFile,'Y');
        % process input range parameters
        if (params.xRange == 0)
            params.xRange = [1 mSize(2)];
@@ -1410,7 +1410,11 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        end    
        
        if (params.zRange == 0)
-           params.zRange = [1 mSize(4)];
+           if (length(mSize) < 4)
+               params.zRange = [1 1];
+           else    
+               params.zRange = [1 mSize(4)];
+           end
        end
        
        obj.getSimParams;
@@ -1421,11 +1425,15 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        freqScale = freqScale(freqScaleInd(1):freqScaleInd(2));
        
        
-       FFT = FFTFile.Yz(freqScaleInd(1):freqScaleInd(2),...
+       FFT = FFTFile.Y(freqScaleInd(1):freqScaleInd(2),...
            params.xRange(1):params.xRange(2),...
            params.yRange(1):params.yRange(2),...
            params.zRange(1):params.zRange(2));
-       Amp = (mean(mean(mean(abs(FFT),4),3),2));
+       if (length(mSize) == 4)            
+           Amp = (mean(mean(mean(abs(FFT),4),3),2));
+       elseif (length(mSize) == 3)
+           Amp = (mean(mean(abs(FFT),3),2));
+       end    
        
        if (strcmp(params.scale,'norm'))
            plot(freqScale,Amp);
@@ -1597,6 +1605,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
               [MxStatic,MyStatic,MzStatic] = obj.getStatic(params.source);
           catch err
               disp('Can not load background configuration');
+              disp(err)
               return
           end    
        else
@@ -1635,7 +1644,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        if ~isempty(strfind(params.proj,'y'))
            YFile = matfile(fullfile(params.source,[filePrefix,'y.mat']));
            arrSize = size(YFile,value);
-           FFTyFile = matfile(fullfile(params.destination,[filePrefix,'xFFT.mat']),'Writable',true);
+           FFTyFile = matfile(fullfile(params.destination,[filePrefix,'yFFT.mat']),'Writable',true);
        end
        
        if ~isempty(strfind(params.proj,'z'))
@@ -1664,7 +1673,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            zStep = 1;
            chunkAmount = 1;
        elseif (params.chunk)
-           zStep = 2;
+           zStep = 3;
            chunkAmount = ceil(arrSize(4)/zStep);
        else     
            zStep = arrSize(4);
@@ -1700,7 +1709,19 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                Mz = ZFile.M(1:arrSize(1),1:arrSize(2),1:arrSize(3));
                FFTzFile.Y = fftshift(obj.calcFFT(Mz,MzStatic,windArr),1);
                clear Mz
-           end    
+           end
+           
+           if ~isempty(strfind(params.proj,'inp'))
+               disp('Minp');
+               Minp = InpFile.M(1:arrSize(1),1:arrSize(2),1:500);
+               FFTinpFile.Y(1:arrSize(1),1:arrSize(2),1:500) =...
+                       fftshift(obj.calcFFT(Minp,[],windArr),1);
+               Minp = InpFile.M(1:arrSize(1),1:arrSize(2),501:1000);
+               FFTinpFile.Y(1:arrSize(1),1:arrSize(2),501:1000) =...
+                       fftshift(obj.calcFFT(Minp,[],windArr),1);
+               clear Minp
+           end
+           
        else
        
        for chunkInd = 1:chunkAmount
@@ -1710,16 +1731,8 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            if ~isempty(strfind(params.proj,'x'))
                % process Mx projection
                disp('Mx');
-               switch params.value
-                   case 'M'
-                       Mx = XFile.M(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
-                   case 'H'    
-                       Mx = XFile.H(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
-                   case 'Heff'    
-                       Mx = XFile.H(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);    
-                   case 'Hdemag'    
-                       Mx = XFile.H(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);    
-               end
+               
+               Mx = obj.getArrVariable(params.value,XFile,arrSize,zStart,zEnd);
                
                if params.background
                    tmp = obj.calcFFT(Mx,MxStatic(:,:,zStart:zEnd),windArr);
@@ -1728,94 +1741,40 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                end    
                clear Mx
                 
-               disp('Write');
-               if mod(arrSize(1),2)
-                   c = tmp((ceil(0.5*arrSize(1))+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
-                   
-                   % FIX: if array is empty, it should be complex empty array  
-                   if (chunkInd ==1) && ~any(nonzeros(c))
-                       FFTxFile.Y(1:floor(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),zStart:zEnd) = complex(c);
-                   else
-                       FFTxFile.Y(1:floor(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),zStart:zEnd) = c;
-                   end  
-                   
-                   FFTxFile.Y(ceil(0.5*arrSize(1)):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
-                       tmp(1:ceil(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),:);
-               else
-                   %c = tmp((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
-                   
-                   % FIX: if array is empty, it should be complex empty array
-                   if (chunkInd ==1) % && ~any(nonzeros(tmp((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),:)))
-                       FFTxFile.Y(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
-                           complex(tmp((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),:));
-                   else
-                       FFTxFile.Y(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
-                           tmp((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
-                   end  
-                   
-                   FFTxFile.Y((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) = ...
-                       tmp(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),:); 
-               end
+               obj.writeFFTfile(tmp, FFTxFile, zStart, zEnd);
+               
            end
            
            if ~isempty(strfind(params.proj,'y'))
                % process My projection
                disp('My');
+               My = obj.getArrVariable(params.value, YFile,arrSize,zStart,zEnd);
                
-               My = YFile.M(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
                tmp = obj.calcFFT(My,MyStatic(:,:,zStart:zEnd),windArr);
                clear My
                
                % write results of calculation to file
                disp('Write');
-               if mod(arrSize(1),2)
-                   FFTyFile.Y(1:floor(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
-                       tmp((ceil(0.5*arrSize(1))+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
-                   FFTyFile.Y(ceil(0.5*arrSize(1)):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
-                       tmp(1:ceil(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),:);
-               else
-                   FFTyFile.Y(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
-                       tmp((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
-                   FFTyFile.Y((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
-                       tmp(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),:);
-               end
+               
+               obj.writeFFTfile(tmp, FFTyFile, zStart, zEnd);
                
            end
            
            if ~isempty(strfind(params.proj,'z'))
                % process Mz projection
-               disp('Mz');
-               switch params.value
-                   case 'M'
-                       Mz = ZFile.M(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
-                   case 'H'
-                       Mz = ZFile.H(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
-                   case 'Heff'
-                       Mz = ZFile.H(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
-                   case 'Hdemag'
-                       Mz = ZFile.H(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);    
-               end
-               
+               disp('Mz');               
+               Mz = obj.getArrVariable(params.value, ZFile,arrSize,zStart,zEnd);
+                              
                if params.background
                    tmp = obj.calcFFT(Mz,MzStatic(:,:,zStart:zEnd),windArr);
                else
                    tmp = obj.calcFFT(Mz,[],windArr);
                end    
-               clear Mz
+               %clear Mz
                
-               % write results of calculation to file
-               disp('Write');
-               if mod(arrSize(1),2)
-                   FFTzFile.Y(1:floor(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
-                       tmp((ceil(0.5*arrSize(1))+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
-                   FFTzFile.Y(ceil(0.5*arrSize(1)):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
-                       tmp(1:ceil(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),:);
-               else
-                   FFTzFile.Y(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
-                       tmp((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
-                   FFTzFile.Y((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
-                       tmp(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),:);
-               end
+               % write results of calculation to file               
+               obj.writeFFTfile(tmp, FFTzFile, zStart, zEnd);
+                  
            end
            
            if ~isempty(strfind(params.proj,'inp'))
@@ -1827,22 +1786,12 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                clear Minp
                
                % write results of calculation to file
-               disp('Write');
-               if mod(arrSize(1),2)
-                   FFTinpFile.Y(1:floor(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
-                       tmp((ceil(0.5*arrSize(1))+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
-                   FFTinpFile.Y(ceil(0.5*arrSize(1)):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
-                       tmp(1:ceil(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),:);
-               else
-                   FFTinpFile.Y(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
-                       tmp((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
-                   FFTinpFile.Y((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
-                       tmp(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),:);
-               end
+               obj.writeFFTfile(tmp, FFTyFile, zStart, zEnd);
+               
            end
        end
        end
-       obj.sendNote('OOMMF_sim','Method: make FFT. Status: finished.')
+       %obj.sendNote('OOMMF_sim','Method: make FFT. Status: finished.')
    end
   
    function plotYFreqMap(obj,varargin)
@@ -2051,31 +2000,26 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        % plot results
        Amp = abs(YtsSlice);
+       Amp = log10(Amp/min(nonzeros(Amp(:))));
        Phase = angle(YtsSlice);
        
        fig1 = figure(1);
-           %subplot(211);
-               imagesc(axis2Scale,axis1Scale,Amp.',[0 max(Amp(:))]);
-               axis xy
-               xlabel(axis2Label); ylabel(axis1Label);
-               obj.setDbColorbar('');
-               colormap(flipud(gray));
-              % freezeColors;
-              % cbfreeze;
-               title(['\nu = ',num2str(params.freq),' GHz, k = ',num2str(params.k),...
-                   '\mum, M_',params.proj,' projection'],'FontSize',14,'FontName','Times');
+           imagesc(axis2Scale,axis1Scale,Amp.',[0 max(Amp(:))]);
+           axis xy
+           xlabel(axis2Label); ylabel(axis1Label);
+           obj.setDbColorbar('');
+           colormap(flipud(gray));
+           title(['\nu = ',num2str(params.freq),' GHz, k = ',num2str(params.k),...
+               '\mum, M_',params.proj,' projection'],'FontSize',14,'FontName','Times');
 
         fig2 = figure(2);
-
-           %subplot(212);
-               imagesc(axis2Scale,axis1Scale,Phase.',[-pi pi]);
-               axis xy
-               xlabel(axis2Label); ylabel(axis1Label);
-               colorbar('EastOutside');
-            %   cblabel('rad.');
-               colormap(hsv);
-               title(['\nu = ',num2str(params.freq),' GHz, k = ',num2str(params.k),...
-                   '\mum, M_',params.proj,' projection'],'FontSize',14,'FontName','Times');
+           imagesc(axis2Scale,axis1Scale,Phase.',[-pi pi]);
+           axis xy
+           xlabel(axis2Label); ylabel(axis1Label);
+           colorbar('EastOutside');
+           colormap(hsv);
+           title(['\nu = ',num2str(params.freq),' GHz, k = ',num2str(params.k),...
+               '\mum, M_',params.proj,' projection'],'FontSize',14,'FontName','Times');
            
       %fig2 = figure(2);
       %    meanAmp = mean(Amp,1);
@@ -2112,8 +2056,8 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            fName = strcat(params.saveAs,'_f',num2str(params.freq),'GHz_k',...
                num2str(params.k),'mum_M',params.proj);
            
-           obj.savePlotAs(strcat(fName,'-image'),fig1);
-           %obj.savePlotAs(strcat(fName,'-slice'),fig3);
+           obj.savePlotAs(strcat(fName,'-amp'),fig1);
+           obj.savePlotAs(strcat(fName,'-phase'),fig2);
        end    
        
   end
@@ -2156,37 +2100,47 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
                InpX = zeros(obj.xnodes,obj.ynodes,obj.znodes);
                InpY = zeros(obj.xnodes,obj.ynodes,obj.znodes);
                
-               InpX = sqrt((MyStatic(params.xRange,params.yRange,params.zRange).^2)./...
-                   (MxStatic(params.xRange,params.yRange,params.zRange).^2+...
-                   MyStatic(params.xRange,params.yRange,params.zRange).^2));
-               InpY = sqrt((MxStatic(params.xRange,params.yRange,params.zRange).^2)./...
-                   (MxStatic(params.xRange,params.yRange,params.zRange).^2+...
-                   MyStatic(params.xRange,params.yRange,params.zRange).^2));
+               InpX = sqrt((MyStatic.^2)./(MxStatic.^2+MyStatic.^2));
+               InpY = sqrt((MxStatic.^2)./(MxStatic.^2+MyStatic.^2));
                % calculate coordinates of normal plane for every points
                
                % load magnetization
                MxFile = matfile(obj.MxName);
                MyFile = matfile(obj.MyName);
                MzFile = matfile(obj.MzName);
+               mFile = matfile('Minp.mat','Writable',true);
                timeFrames = size(MxFile,'M',1);
                
-               % initialize array of in-plane magnetization
-               Minp = zeros(timeFrames,obj.xnodes,obj.ynodes,obj.znodes);
-               
-               
-               for timeStep = 1:timeFrames
-                   disp(timeStep);
-                   Mx = squeeze(MxFile.M(timeStep,params.xRange,...
-                       params.yRange,params.zRange));
-                   My = squeeze(MyFile.M(timeStep,params.xRange,...
-                       params.yRange,params.zRange));
-                   Minp(timeStep,params.xRange,params.yRange,params.zRange) = ...
-                       Mx.*InpX+My.*InpY;
+               chunckSize = 128;
+               for timeId = 1:chunckSize:timeFrames
+                   % loop along chunks
+                   timeStart = timeId;
+                   timeEnd = min(timeId+chunckSize-1,timeFrames);
+                   timeRange = (timeStart:timeEnd).';
+                   
+                   disp('read');
+                   Mx = MxFile.M(timeRange,params.xRange,params.yRange,params.zRange);
+                   My = MyFile.M(timeRange,params.xRange,params.yRange,params.zRange);
+                   % initialize array of in-plane magnetization
+                   Minp = zeros(size(timeRange,1),obj.xnodes,obj.ynodes,obj.znodes);
+                   
+                   disp('parfor')
+                   parfor timeStep = 1:size(timeRange,1)
+                       disp(timeStep+timeStart);
+                       Minp(timeStep,:,:,:) = ...
+                           squeeze(Mx(timeStep,:,:,:)).*InpX+...
+                           squeeze(My(timeStep,:,:,:)).*InpY;
+                   end
+                   
+                   disp('save')
+                   if (size(Minp,4) >1)
+                       mFile.M(timeRange,params.xRange,params.yRange,params.zRange) = Minp;
+                   else
+                       mFile.M(timeRange,params.xRange,params.yRange) = Minp;
+                   end    
                end
        end
-       
-       mFile = matfile('Minp.mat','Writable',true);
-       mFile.M = Minp; 
+         
    end 
    
    %% Interpolation of time dependence
@@ -2617,6 +2571,58 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            res = fft(input,[],1);
        end
    end
+   
+   % Return array from mat file 
+   %  params:  
+   %    value - "M" or "H"
+   %    fileHandler - handler of file to read from
+   %    arrSize     - size of array to read which
+   %    zStart, zEnd  - initial and final coordinate of the array to read 
+   function res = getArrVariable(obj,value, fileHandler,arrSize,zStart,zEnd)
+       switch value
+           case 'M'
+               res = fileHandler.M(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
+           case 'H'
+               res = fileHandler.H(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
+           case 'Heff'
+               res = fileHandler.H(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
+           case 'Hdemag'
+               res = fileHandler.H(1:arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd);
+       end
+   end
+   
+   % Write results of FFT transformation to mat file.
+   % The function was written to replace build-in "fftshift" function
+   %   Params:
+   %     data - array to save
+   %     fileHandler - handler of the file to save in
+   %     zStart,zEnd - initial and final coordinate along OZ axis
+   function writeFFTfile(obj, data, fileHandler, zStart, zEnd)
+       disp('Save FFT to file')
+       arrSize = size(data);
+       if mod(arrSize(1),2) % odd amount of frequency bins
+           c = data((ceil(0.5*arrSize(1))+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
+           % FIX: if array is empty, it should be complex empty array
+           if (zStart ==1) && ~any(nonzeros(c))
+               fileHandler.Y(1:floor(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),zStart:zEnd) = complex(c);
+           else
+               fileHandler.Y(1:floor(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),zStart:zEnd) = c;
+           end
+           fileHandler.Y(ceil(0.5*arrSize(1)):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) =...
+               data(1:ceil(0.5*arrSize(1)),1:arrSize(2),1:arrSize(3),:);
+           
+       else % even amount of frequency bins
+           c = data((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),:);
+           % FIX: if array is empty, it should be complex empty array
+           if (zStart ==1) && ~any(nonzeros(c))
+               fileHandler.Y(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) = complex(c);
+           else
+               fileHandler.Y(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) = c;
+           end
+           fileHandler.Y((0.5*arrSize(1)+1):arrSize(1),1:arrSize(2),1:arrSize(3),zStart:zEnd) = ...
+               data(1:0.5*arrSize(1),1:arrSize(2),1:arrSize(3),:);
+       end
+   end    
    
   
  % END OF PRIVATE METHODS
