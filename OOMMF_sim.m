@@ -58,7 +58,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    function loadParams(obj,varargin)
        %% open file and check errors
      p = inputParser;
-     p.addParamValue('fileExt','omf',@(x) any(strcmp(x,obj.availableExts)));
+     p.addParameter('fileExt','omf',@(x) any(strcmp(x,obj.availableExts)));
      p.parse(varargin{:});
      params = p.Results;
      
@@ -130,8 +130,8 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    function [Mx,My,Mz] = loadMagnetisation(obj,varargin)
        %% open file and check errors
      p = inputParser;
-     p.addParamValue('showMemory',false,@islogical);
-     p.addParamValue('fileExt','omf',@(x) any(strcmp(x,obj.availableExts)));
+     p.addParameter('showMemory',false,@islogical);
+     p.addParameter('fileExt','omf',@(x) any(strcmp(x,obj.availableExts)));
      p.parse(varargin{:});
      params = p.Results;
      
@@ -217,8 +217,8 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    function valArr = loadMonoVal(obj,varargin)
        %% open file and check errors
      p = inputParser;
-     p.addParamValue('showMemory',false,@islogical);
-     p.addParamValue('fileExt','omf',@(x) any(strcmp(x,obj.availableExts)));
+     p.addParameter('showMemory',false,@islogical);
+     p.addParameter('fileExt','omf',@(x) any(strcmp(x,obj.availableExts)));
      p.parse(varargin{:});
      params = p.Results;
      
@@ -323,14 +323,14 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    % should be rewritted 
    function plotMSurfXY(obj,varargin)
      p = inputParser;
-     p.addParamValue('slice',1,@isnumeric);
-     p.addParamValue('proj',@ischar);
+     p.addParameter('slice',1,@isnumeric);
+     p.addParameter('proj',@ischar);
      
-     p.addParamValue('saveAs','',@isstr);
-     p.addParamValue('colourRange',0,@isnumeric);
-     p.addParamValue('xRange',0,@isnumeric);
-     p.addParamValue('yRange',0,@isnumeric);
-     p.addParamValue('timeFrame',1,@isnumeric);
+     p.addParameter('saveAs','',@isstr);
+     p.addParameter('colourRange',0,@isnumeric);
+     p.addParameter('xRange',0,@isnumeric);
+     p.addParameter('yRange',0,@isnumeric);
+     p.addParameter('timeFrame',1,@isnumeric);
      
      p.parse(varargin{:});
      params = p.Results;
@@ -385,13 +385,13 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        % parse input values and parameters
        p = inputParser;
-       p.addParamValue('slice',1,@isnumeric);
-       p.addParamValue('proj','Y',@(x)any(strcmp(x,obj.availableProjs)));
-       p.addParamValue('saveAs','',@isstr);
-       p.addParamValue('colourRange',0,@isnumerical);
-       p.addParamValue('showScale',true,@islogical);
-       p.addParamValue('xrange',0,@isnumerical);
-       p.addParamValue('yrange',0,@isnumerical);
+       p.addParameter('slice',1,@isnumeric);
+       p.addParameter('proj','Y',@(x)any(strcmp(x,obj.availableProjs)));
+       p.addParameter('saveAs','',@isstr);
+       p.addParameter('colourRange',0,@isnumerical);
+       p.addParameter('showScale',true,@islogical);
+       p.addParameter('xrange',0,@isnumerical);
+       p.addParameter('yrange',0,@isnumerical);
        
        p.parse(varargin{:});
        params = p.Results;
@@ -433,15 +433,15 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      p.addRequired('slice',@isnumeric);
      p.addRequired('proj',@ischar);
      
-     p.addParamValue('saveImg',false,@islogical);
-     p.addParamValue('saveImgPath','');
-     p.addParamValue('colourRange',0,@isnumeric);
-     p.addParamValue('showScale',true,@islogical);
-     p.addParamValue('rotate',false,@islogical);
-     p.addParamValue('substract',false,@islogical);
-     p.addParamValue('background',0,@isnumeric);
-     p.addParamValue('xrange',':',@isnumeric);
-     p.addParamValue('yrange',':',@isnumeric);
+     p.addParameter('saveImg',false,@islogical);
+     p.addParameter('saveImgPath','');
+     p.addParameter('colourRange',0,@isnumeric);
+     p.addParameter('showScale',true,@islogical);
+     p.addParameter('rotate',false,@islogical);
+     p.addParameter('substract',false,@islogical);
+     p.addParameter('background',0,@isnumeric);
+     p.addParameter('xrange',':',@isnumeric);
+     p.addParameter('yrange',':',@isnumeric);
      
      p.parse(slice,proj,varargin{:});
      params = p.Results;
@@ -467,15 +467,15 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      p.addRequired('viewAxis',@ischar);
      p.addRequired('slice',@isnumeric);
      p.addRequired('proj',@ischar);
-     p.addParamValue('saveImg', false,@islogical);
-     p.addParamValue('saveImgPath','');
-     p.addParamValue('colourRange',0,@isnumeric);
-     p.addParamValue('showScale',true,@islogical);
-     p.addParamValue('xrange',:);
-     p.addParamValue('yrange',:);
-     p.addParamValue('rotate',false,@islogical);
-     p.addParamValue('substract',false,@islogical);
-     p.addParamValue('background',0,@isnumeric);
+     p.addParameter('saveImg', false,@islogical);
+     p.addParameter('saveImgPath','');
+     p.addParameter('colourRange',0,@isnumeric);
+     p.addParameter('showScale',true,@islogical);
+     p.addParameter('xrange',:);
+     p.addParameter('yrange',:);
+     p.addParameter('rotate',false,@islogical);
+     p.addParameter('substract',false,@islogical);
+     p.addParameter('background',0,@isnumeric);
      
      p.parse(viewAxis,slice,proj,varargin{:});
      params = p.Results;
@@ -728,11 +728,11 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      p.addRequired('viewAxis', @(x)any(strcmp(x,{'X','Y','Z',':'})));
      p.addRequired('proj', @(x)any(strcmp(x,{'X','Y','Z',':'})));
      p.addRequired('sliceNumber',@isnumeric);
-     p.addParamValue('range1',':',...
+     p.addParameter('range1',':',...
           @(x)(strcmp(x,':') ||...
           (isnumeric(x) && (size(x,1)==1) && (size(x,2)==2))...
         ));
-     p.addParamValue('range2',':',...
+     p.addParameter('range2',':',...
           @(x)(strcmp(x,':') || ...
           (isnumeric(x) && (size(x,1)==1) && (size(x,2)==2))...
         ));
@@ -810,21 +810,21 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        %  - normalize is determine
        
        p = inputParser;
-       p.addParamValue('xRange',0,@isnumeric);
-       p.addParamValue('yRange',0,@isnumeric);
-       p.addParamValue('zRange',0,@isnumeric);
-       p.addParamValue('freqLimit',[0 50], @isnumeric);
-       p.addParamValue('waveLimit',[0 700],@isnumeric);
-       p.addParamValue('proj','z',@(x)any(strcmp(x,obj.availableProjs)));
-       p.addParamValue('saveAs','',@isstr);
-       p.addParamValue('saveMatAs','',@isstr);
-       p.addParamValue('interpolate',false,@islogical);
-       p.addParamValue('direction','X',@(x)any(strcmp(x,obj.availableProjs)));
-       p.addParamValue('scale','log',@(x) any(strcmp(x,{'log','norm'})));
-       p.addParamValue('normalize',true,@islogical);
-       p.addParamValue('windowFunc',false,@islogical);
-       p.addParamValue('value','M',@(x) any(strcmp(x,{'H','M','Heff','Hdemag'})));
-       p.addParamValue('zAverage',false,@islogical); %average frequency-domain FFT along z axis
+       p.addParameter('xRange',0,@isnumeric);
+       p.addParameter('yRange',0,@isnumeric);
+       p.addParameter('zRange',0,@isnumeric);
+       p.addParameter('freqLimit',[0 50], @isnumeric);
+       p.addParameter('waveLimit',[0 700],@isnumeric);
+       p.addParameter('proj','z',@(x)any(strcmp(x,obj.availableProjs)));
+       p.addParameter('saveAs','',@isstr);
+       p.addParameter('saveMatAs','',@isstr);
+       p.addParameter('interpolate',false,@islogical);
+       p.addParameter('direction','X',@(x)any(strcmp(x,obj.availableProjs)));
+       p.addParameter('scale','log',@(x) any(strcmp(x,{'log','norm'})));
+       p.addParameter('normalize',true,@islogical);
+       p.addParameter('windowFunc',false,@islogical);
+       p.addParameter('value','M',@(x) any(strcmp(x,{'H','M','Heff','Hdemag'})));
+       p.addParameter('zAverage',false,@islogical); %average frequency-domain FFT along z axis
        
        % process incomming parameters
        p.parse(varargin{:});
@@ -1038,14 +1038,14 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        %  - saveAs is name of output *.png and *.fig files
        
        p = inputParser;
-       p.addParamValue('freq',0,@isnumeric);
-       p.addParamValue('zSlice',1,@isnumeric);
-       p.addParamValue('xRange',0,@isnumeric);
-       p.addParamValue('yRange',0,@isnumeric);
-       p.addParamValue('scale','log', @(x) any(strcmp(x,{'norm','log'})));
-       p.addParamValue('saveAs','',@isstr);
-       p.addParamValue('rotate',false,@islogical);
-       p.addParamValue('proj','z',@(x)any(strcmp(x,obj.availableProjs)));
+       p.addParameter('freq',0,@isnumeric);
+       p.addParameter('zSlice',1,@isnumeric);
+       p.addParameter('xRange',0,@isnumeric);
+       p.addParameter('yRange',0,@isnumeric);
+       p.addParameter('scale','log', @(x) any(strcmp(x,{'norm','log'})));
+       p.addParameter('saveAs','',@isstr);
+       p.addParameter('rotate',false,@islogical);
+       p.addParameter('proj','z',@(x)any(strcmp(x,obj.availableProjs)));
        
        p.parse(varargin{:});
        params = p.Results;
@@ -1177,20 +1177,20 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        %       rotate - rotate the image (false)
        
        p = inputParser;
-       p.addParamValue('freq',0,@isnumeric);
-       p.addParamValue('ySlice',2,@isnumeric);
+       p.addParameter('freq',0,@isnumeric);
+       p.addParameter('ySlice',2,@isnumeric);
        
-       p.addParamValue('xRange',0,@isnumeric);
-       p.addParamValue('yRange',0,@isnumeric);
-       p.addParamValue('zRange',0,@isnumeric);
+       p.addParameter('xRange',0,@isnumeric);
+       p.addParameter('yRange',0,@isnumeric);
+       p.addParameter('zRange',0,@isnumeric);
        
-       p.addParamValue('scale','log', @(x) any(strcmp(x,{'norm','log'})));
-       p.addParamValue('saveAs','',@isstr);
-       p.addParamValue('proj','z',@(x)any(strcmp(x,obj.availableProjs)));
+       p.addParameter('scale','log', @(x) any(strcmp(x,{'norm','log'})));
+       p.addParameter('saveAs','',@isstr);
+       p.addParameter('proj','z',@(x)any(strcmp(x,obj.availableProjs)));
        
-       p.addParamValue('rotate',false,@islogical);
-       p.addParamValue('gaussWin',0,@isnumeric);
-       p.addParamValue('value','M',@(x) any(strcmp(x,{'H','M'})));
+       p.addParameter('rotate',false,@islogical);
+       p.addParameter('gaussWin',0,@isnumeric);
+       p.addParameter('value','M',@(x) any(strcmp(x,{'H','M'})));
             
        p.parse(varargin{:});
        params = p.Results;
@@ -1384,15 +1384,15 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        p = inputParser;
        
-       p.addParamValue('label','',@isstr);
-       p.addParamValue('scale','norm', @(x) any(strcmp(x, {'norm','log'})));
-       p.addParamValue('proj','z',@(x)any(strcmp(x,obj.availableProjs)));
-       p.addParamValue('xRange',0,@isnumeric);
-       p.addParamValue('yRange',0,@isnumeric);
-       p.addParamValue('zRange',0,@isnumeric);
-       p.addParamValue('saveAs','',@isstr);
-       p.addParamValue('freqLimit',[0 25],@isnumeric);
-       p.addParamValue('saveMatAs','',@isstr);
+       p.addParameter('label','',@isstr);
+       p.addParameter('scale','norm', @(x) any(strcmp(x, {'norm','log'})));
+       p.addParameter('proj','z',@(x)any(strcmp(x,obj.availableProjs)));
+       p.addParameter('xRange',0,@isnumeric);
+       p.addParameter('yRange',0,@isnumeric);
+       p.addParameter('zRange',0,@isnumeric);
+       p.addParameter('saveAs','',@isstr);
+       p.addParameter('freqLimit',[0 25],@isnumeric);
+       p.addParameter('saveMatAs','',@isstr);
        
        p.parse(varargin{:});
        params = p.Results;
@@ -1450,12 +1450,12 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    function makeMovie(obj,varargin)
        
        p = inputParser;
-       p.addParamValue('xRange',:,@isnumeric);
-       p.addParamValue('zSlice',10,@isnumeric);
-       p.addParamValue('timeFrames',100,@isnumeric);
-       p.addParamValue('yRange',22:60,@isnumeric);
-       p.addParamValue('colourRange',6000);
-       p.addParamValue('fName','',@isstr);
+       p.addParameter('xRange',:,@isnumeric);
+       p.addParameter('zSlice',1,@isnumeric);
+       p.addParameter('timeFrames',100,@isnumeric);
+       p.addParameter('yRange',1:1,@isnumeric);
+       p.addParameter('colourRange',6000);
+       p.addParameter('fName','',@isstr);
        
        p.parse(varargin{:});
        params = p.Results;
@@ -1503,12 +1503,12 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    % make GIF animation
    function makeGIF(obj,varargin)
        p = inputParser;
-       p.addParamValue('xRange',:,@isnumeric);
-       p.addParamValue('zSlice',10,@isnumeric);
-       p.addParamValue('timeFrames',48,@isnumeric);
-       p.addParamValue('yRange',26:56,@isnumeric);
-       p.addParamValue('colourRange',6000);
-       p.addParamValue('fName','',@isstr);
+       p.addParameter('xRange',:,@isnumeric);
+       p.addParameter('zSlice',10,@isnumeric);
+       p.addParameter('timeFrames',48,@isnumeric);
+       p.addParameter('yRange',26:56,@isnumeric);
+       p.addParameter('colourRange',6000);
+       p.addParameter('fName','',@isstr);
        
        p.parse(varargin{:});
        params = p.Results;
@@ -1842,7 +1842,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            end
        end
        end
-       obj.sendNote('OOMMF_sim','Method: make FFT. Status: finished.')
+       %obj.sendNote('OOMMF_sim','Method: make FFT. Status: finished.')
    end
   
    function plotYFreqMap(obj,varargin)
@@ -1853,21 +1853,27 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      %   - xRange, yRange, zRange are border of interesting area
        
        p = inputParser;
-       p.addParamValue('freqLimit',[0.1 20],@isnumeric);
-       p.addParamValue('xRange',0,@isnumeric);
-       p.addParamValue('yRange',0,@isnumeric);
-       p.addParamValue('zRange',0,@isnumeric);
-       p.addParamValue('scale','log',@(x) any(strcmp(x,{'log','norm'})));
-       p.addParamValue('proj','z');
-       p.addParamValue('saveAs','',@isstr);
+       p.addParameter('freqLimit',[0.1 20],@isnumeric);
+       p.addParameter('xRange',0,@isnumeric);
+       p.addParameter('yRange',0,@isnumeric);
+       p.addParameter('zRange',0,@isnumeric);
+       p.addParameter('scale','log',@(x) any(strcmp(x,{'log','norm'})));
+       p.addParameter('proj','z');
+       p.addParameter('saveAs','',@isstr);
        
        p.parse(varargin{:});
        params = p.Results;
        
        obj.getSimParams;
-              
-       YzFile = matfile('MzFFT.mat');
-       arrSize = size(YzFile,'Yz');
+       
+       switch params.proj
+           case 'z'
+               YzFile = matfile('MzFFT.mat');
+           case 'x'
+               YzFile = matfile('MxFFT.mat');
+       end
+       
+       arrSize = size(YzFile,'Y');
        
        % process input parameters
        if (params.xRange == 0)
@@ -1890,7 +1896,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        yScale = linspace(obj.ymin,obj.ymax,obj.ynodes)/1e-6;
        
        
-       Y = YzFile.Yz(freqScaleInd(1):freqScaleInd(2),...
+       Y = YzFile.Y(freqScaleInd(1):freqScaleInd(2),...
                      params.xRange(1):params.xRange(2),...
                      params.yRange(1):params.yRange(2),...
                      params.zRange(1):params.zRange(2));
@@ -1924,16 +1930,16 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        % region of interest
        p.addRequired('freq',@isnumeric);
        p.addRequired('k',@isnumeric);
-       p.addParamValue('direction','z',@(x)any(strcmp(x,obj.availableProjs)));
-       p.addParamValue('proj','z',@(x)any(strcmp(x,obj.availableProjs)));
+       p.addParameter('direction','z',@(x)any(strcmp(x,obj.availableProjs)));
+       p.addParameter('proj','z',@(x)any(strcmp(x,obj.availableProjs)));
        
        % range of spatial limits
-       p.addParamValue('xRange','',@isnumeric)
-       p.addParamValue('yRange','',@isnumeric);
-       p.addParamValue('zRange','',@isnumeric);
+       p.addParameter('xRange','',@isnumeric)
+       p.addParameter('yRange','',@isnumeric);
+       p.addParameter('zRange','',@isnumeric);
        
        % output params
-       p.addParamValue('saveAs','',@isstr);
+       p.addParameter('saveAs','',@isstr);
        
        p.parse(freq,k,varargin{:});
        
@@ -2125,10 +2131,10 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    function calcDynamicComponents(obj,varargin)
        
        p = inputParser;
-       p.addParamValue('normalAxis','z',@(a) any(strcmp(a,obj.availableProjs)));
-       p.addParamValue('xRange',0,@isnumeric);
-       p.addParamValue('yRange',0,@isnumeric);
-       p.addParamValue('zRange',0,@isnumeric);
+       p.addParameter('normalAxis','z',@(a) any(strcmp(a,obj.availableProjs)));
+       p.addParameter('xRange',0,@isnumeric);
+       p.addParameter('yRange',0,@isnumeric);
+       p.addParameter('zRange',0,@isnumeric);
        p.parse(varargin{:});
        params = p.Results;
 
@@ -2195,8 +2201,8 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
        % read input patameters
        p = inputParser;
-       p.addParamValue('tableFile','table.txt',@isstr);
-       p.addParamValue('value','M',@(x) any(strcmp(x,{'M','H'})));
+       p.addParameter('tableFile','table.txt',@isstr);
+       p.addParameter('value','M',@(x) any(strcmp(x,{'M','H'})));
        p.parse(varargin{:});
        params = p.Results;
        
@@ -2252,11 +2258,11 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        % read input patameters
        
        p = inputParser;
-       p.addParamValue('zSlice',1,@isnumeric);
-       p.addParamValue('ySlice',1,@isnumeric);
-       p.addParamValue('limit',0,@isnumeric);
-       p.addParamValue('saveAs','',@isstr);
-       p.addParamValue('startTime',0,@isnumeric);
+       p.addParameter('zSlice',1,@isnumeric);
+       p.addParameter('ySlice',1,@isnumeric);
+       p.addParameter('limit',0,@isnumeric);
+       p.addParameter('saveAs','',@isstr);
+       p.addParameter('startTime',0,@isnumeric);
        
        p.parse(varargin{:});      
        params = p.Results;
@@ -2296,13 +2302,13 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    function plotLinSlice(obj,varargin)
        p = inputParser;
        
-       p.addParamValue('ySlice',[10 20],@isnumeric);
-       p.addParamValue('zSlice',1,@isnumeric);
-       p.addParamValue('timeFrame',984,@isnumeric);
-       p.addParamValue('saveAs','',@isstr);
-       p.addParamValue('saveMatAs','',@isstr);
-       p.addParamValue('baseline',true,@islogical);
-       p.addParamValue('complex',false,@islogical);
+       p.addParameter('ySlice',[10 20],@isnumeric);
+       p.addParameter('zSlice',1,@isnumeric);
+       p.addParameter('timeFrame',984,@isnumeric);
+       p.addParameter('saveAs','',@isstr);
+       p.addParameter('saveMatAs','',@isstr);
+       p.addParameter('baseline',true,@islogical);
+       p.addParameter('complex',false,@islogical);
        
        % experimental parameters
        spotSize = 400e-9; % nm
@@ -2406,19 +2412,19 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    
    function convertFormat(obj)
        
-       if (exist('Mz.mat'))
+       if (exist('Mz.mat','file'))
            mfile = matfile('Mz.mat','Writable',true);
            mfile.M = mfile.Mz;
            mfile.Mz = [];
        end
        
-       if (exist('My.mat'))
+       if (exist('My.mat','file'))
            mfile = matfile('My.mat','Writable',true);
            mfile.M = mfile.My;
            mfile.My = [];
        end
        
-       if (exist('Mx.mat'))
+       if (exist('Mx.mat','file'))
            mfile = matfile('Mx.mat','Writable',true);
            mfile.M = mfile.Mx;
            mfile.Mx = [];
@@ -2498,7 +2504,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        end
    end    
    
-   function writeMemLog(obj,comment)
+   function writeMemLog(obj)
        res = memory;  
        fid = fopen(obj.memLogFile,'a');
        data = clock;
@@ -2514,7 +2520,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
     %scan folder %path% and select all %ext% files
    function fList = getFilesList(obj,path,fileBase,ext)
      if (isdir(path))
-       if length(fileBase)  
+       if empty(fileBase)  
            fList = dir(strcat(path,filesep,fileBase,'*.',ext));
        else
            pth = strcat(path,filesep,'*.',ext);
