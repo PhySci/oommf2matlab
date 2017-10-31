@@ -11,4 +11,5 @@ Main features:
 <li> etc
 </ul>
 
+Dispersion curve of the permalloy waveguide
 ![alt tag](dispMz2.png)
