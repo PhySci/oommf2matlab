@@ -597,12 +597,11 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    
      % scan folder, load all *.omf files, save objects
    % path - path to the folder
-   % saveObj - save an objects?
    % savePath - path to save objects 
    function scanFolder(obj,path,varargin) 
      % parse input parameters
      p = inputParser;
-     p.addRequired('path',@ischar);
+     p.addParameter('path',pwd,@ischar);
      p.addParameter('deleteFiles', false,@islogical);
      p.addParameter('showMemory',false,@islogical);
      p.addParameter('makeFFT',false,@islogical);
