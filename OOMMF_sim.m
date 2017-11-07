@@ -632,7 +632,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      [~, fName, ~] = fileparts(file.name);
      obj.fName = strcat(path,filesep,fName);
      obj.loadParams('fileExt',params.fileExt);
-     save(strcat(params.destination,filesep,'params.mat'), 'obj');
+     save(strcat(params.destination,filesep,obj.paramsFile), 'obj');
           
      % evaluate required memory and compare with available space
       % memory required for one time frame 
@@ -2385,20 +2385,36 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        
    end
    
-   % return OX scale
+   % Return OX scale
    function res = getXScale(obj)
        res = linspace(obj.xmin,obj.xmax,obj.xnodes); 
    end 
    
-   %return OY scale 
+   % Return OY scale 
    function res = getYScale(obj)
        res = linspace(obj.ymin,obj.ymax,obj.ynodes); 
    end
    
-   %return OZ scale
+   % Return OZ scale
    function res = getZScale(obj)
        res = linspace(obj.zmin,obj.zmax,obj.znodes); 
    end
+   
+   % Set time step and save it to params.mat file
+   function setTimeStep(obj,dt)
+      p = inputParser();
+      p.addRequired('dt',@isnumeric);
+      p.parse(dt);      
+      params = p.Results; 
+      dt = params.dt;
+  
+      obj.dt = dt;
+      
+      paramsFile = matfile(obj.paramsFile,'Writable',true);
+      parObj = paramsFile.obj;
+      parObj.dt = dt;
+      paramsFile.obj = parObj;
+   end    
    
    % END OF PUBLIC METHODS
  end
