@@ -2401,6 +2401,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
    end
    
    % Set time step and save it to params.mat file
+   % dt is time step of micromagnetic simulations 
    function setTimeStep(obj,dt)
       p = inputParser();
       p.addRequired('dt',@isnumeric);
