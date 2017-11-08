@@ -598,10 +598,10 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      % scan folder, load all *.omf files, save objects
    % path - path to the folder
    % savePath - path to save objects 
-   function scanFolder(obj,path,varargin) 
+   function scanFolder(obj,varargin) 
      % parse input parameters
      p = inputParser;
-     p.addParameter('path',pwd,@ischar);
+     p.addParameter('path',pwd,@isstr);
      p.addParameter('deleteFiles', false,@islogical);
      p.addParameter('showMemory',false,@islogical);
      p.addParameter('makeFFT',false,@islogical);
@@ -611,7 +611,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      % folder to save results
      p.addParameter('destination','.',@(x) exist(x,'dir')==7);
      
-     p.parse(path,varargin{:});
+     p.parse(varargin{:});
      params = p.Results;
      
           
@@ -627,10 +627,10 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      
      profile on
                 
-     fList = obj.getFilesList(path,params.fileBase,params.fileExt);     
+     fList = obj.getFilesList(params.path,params.fileBase,params.fileExt);     
      file = fList(1);
      [~, fName, ~] = fileparts(file.name);
-     obj.fName = strcat(path,filesep,fName);
+     obj.fName = strcat(params.path,filesep,fName);
      obj.loadParams('fileExt',params.fileExt);
      save(strcat(params.destination,filesep,'params.mat'), 'obj');
           
@@ -658,7 +658,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
      for fInd=1:fileAmount
          file = fList(fInd);
          [~, fName, ~] = fileparts(file.name);
-         obj.fName = strcat(path,filesep,fName);
+         obj.fName = strcat(params.path,filesep,fName);
          [XHeap(indHeap,:,:,:), YHeap(indHeap,:,:,:), ZHeap(indHeap,:,:,:)] = ...
              obj.loadMagnetisation('fileExt',params.fileExt);
                
@@ -1604,7 +1604,6 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
               [MxStatic,MyStatic,MzStatic] = obj.getStatic(params.source);
           catch err
               disp('Can not load background configuration');
-              disp(err)
               return
           end    
        else
@@ -2179,9 +2178,9 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
        % interpolate
        switch params.value
            case 'M' 
-               %obj.interpArray(matfile('Mz.mat'), matfile('MzInterp.mat'), timeScaleOld, timeScaleNew);
-               obj.interpArray(matfile('Minp.mat'), matfile('MinpInterp.mat'), timeScaleOld, timeScaleNew);
-               %obj.interpArray(matfile('Mx.mat'), matfile('MxInterp.mat'), 'Mz', timeScaleOld, timeScaleNew);
+               obj.interpArray(matfile('Mz.mat'), matfile('MzInterp.mat'), timeScaleOld, timeScaleNew);
+               %obj.interpArray(matfile('Minp.mat'), matfile('MinpInterp.mat'), timeScaleOld, timeScaleNew);
+               obj.interpArray(matfile('Mx.mat'), matfile('MxInterp.mat'), timeScaleOld, timeScaleNew);
                %obj.interpArray(matfile('My.mat'), matfile('MyInterp.mat'), 'Mz', timeScaleOld, timeScaleNew);
            case 'H'
                MFile = matfile('Hx.mat');
@@ -2473,7 +2472,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
     %scan folder %path% and select all %ext% files
    function fList = getFilesList(obj,path,fileBase,ext)
      if (isdir(path))
-       if empty(fileBase)  
+       if strcmp(fileBase, '')  
            fList = dir(strcat(path,filesep,fileBase,'*.',ext));
        else
            pth = strcat(path,filesep,'*.',ext);
