@@ -452,6 +452,17 @@ classdef OOMMF_odt < hgsetget % subclass hgsetget
        end 
    end    
    
+   
+   function plotTimeStep(obj)
+       dt = diff(obj.time);
+ 
+       plot(obj.time(2:end)/1e-9, dt/1e-12);
+       xlabel('Time (ns)')
+       ylabel('Time step (ps)')
+     
+       disp(['Mean time step is ', num2str(mean(dt))]);
+   
+   end    
  end
  
 end

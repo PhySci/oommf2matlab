@@ -2180,7 +2180,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
            case 'M' 
                obj.interpArray(matfile('Mz.mat'), matfile('MzInterp.mat'), timeScaleOld, timeScaleNew);
                %obj.interpArray(matfile('Minp.mat'), matfile('MinpInterp.mat'), timeScaleOld, timeScaleNew);
-               obj.interpArray(matfile('Mx.mat'), matfile('MxInterp.mat'), timeScaleOld, timeScaleNew);
+               %obj.interpArray(matfile('Mx.mat'), matfile('MxInterp.mat'), timeScaleOld, timeScaleNew);
                %obj.interpArray(matfile('My.mat'), matfile('MyInterp.mat'), 'Mz', timeScaleOld, timeScaleNew);
            case 'H'
                MFile = matfile('Hx.mat');
@@ -2488,7 +2488,7 @@ classdef OOMMF_sim < hgsetget % subclass hgsetget
     %scan folder %path% and select all %ext% files
    function fList = getFilesList(obj,path,fileBase,ext)
      if (isdir(path))
-       if strcmp(fileBase, '')  
+       if ~strcmp(fileBase, '')  
            fList = dir(strcat(path,filesep,fileBase,'*.',ext));
        else
            pth = strcat(path,filesep,'*.',ext);
